@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="https://images.seeklogo.com/logo-png/39/1/shop-logo-png_seeklogo-392170.png">
+    <title>{% block title %}DAMM{% endblock %}</title>
+
+</head>
+    {%include"style.html"%}
+<body>
+    <div id="app">
+        <div class="container mt-4 mb-3">
+            {%include "navbar.html"%}
+        </div>
+
+        <div class="container my-4">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+{% include "footer.html" %}
+    {%include"script.html"%}
+
+</body>
+</html>

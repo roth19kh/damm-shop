@@ -1,0 +1,79 @@
+{% extends "master.html" %}
+{% block content %}
+
+
+<div class="container my-5">
+    <h2 class="text-center mb-4">Checkout</h2>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card checkout-card p-4">
+                <form @submit.prevent="placeOrder">
+                    <!-- Customer Info -->
+                    <h5 class="mb-3">Customer Information</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" placeholder="Your Full Name" name="name" required v-model="form.name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" placeholder="you@example.com" name="email" required v-model="form.email">
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" placeholder="123 Main Street" name="address" required v-model="form.address">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-control" placeholder="Phnom Penh" name="city" required v-model="form.city">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Country</label>
+                            <input type="text" class="form-control" placeholder="Cambodia" name="country" required v-model="form.country">
+                        </div>
+
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" placeholder="+855 12 345 678" name="phoneNumber" required v-model="form.phone">
+                    </div>
+
+                    <!-- Payment -->
+                    <h5 class="mb-3">Payment Method</h5>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="payment" id="creditCard" checked v-model="form.payment" value="Credit/Debit Card">
+                        <label class="form-check-label" for="creditCard" >
+                            Credit/Debit Card
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="payment" id="paypal" v-model="form.payment" value="Paypal">
+                        <label class="form-check-label" for="paypal">
+                            PayPal
+                        </label>
+                    </div>
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="radio" name="payment" id="cod" v-model="form.payment" value="Cash on Delivery">
+                        <label class="form-check-label" for="cod">
+                            Cash on Delivery
+                        </label>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="text-end">
+                        <button type="submit" id="checkout-btn" class="btn btn-success rounded-pill px-4 py-2">
+                            Place Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,175 @@
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Sweet Alert -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Vue -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <script>
+        //Navbar
+            document.addEventListener('DOMContentLoaded', () => {
+                const currentPath = window.location.pathname;
+                document.querySelectorAll('.nav-link').forEach(link => {
+                if(link.getAttribute('href') === currentPath){
+                    link.classList.add('active');
+                }
+                });
+            });
+
+        //Vue
+
+        const productsData = {{ products | default([]) | tojson | safe }};
+        const {createApp} = Vue;
+        createApp({
+            delimiters: ['[[', ']]'],
+            data(){
+                return{
+                    form: {
+                        name: '',
+                        email: '',
+                        address: '',
+                        city: '',
+                        country: '',
+                        phone: '',
+                        payment: 'Credit/Debit Card'
+                    },
+                    cart:[],
+                    products:productsData,
+                    shipping_fee:1.5,
+                    total:0
+                }
+            },
+
+            computed:{
+                totalPrice(){
+                    return this.cart.reduce((sum,item)=>sum+item.price*item.qty,0);
+                }
+            },
+            methods:{
+                addToCart(product){
+                    if (!product || !product.id) {
+                        console.warn("Invalid product:", product);
+                        return;
+                    }
+                    const existing = this.cart.find(item => item.id ===product.id);
+                    if(existing){
+                        existing.qty +=1;
+                    }else{
+                        this.cart.push({
+                            id:product.id,
+                            title:product.title,
+                            price:product.price,
+                            image:product.image,
+                            qty:1
+                        })
+                    }
+                    Swal.fire({
+                        position: "top-end",
+                        icon: "success",
+                        title: "Product added to cart",
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                    localStorage.setItem('cart',JSON.stringify(this.cart))
+                },
+                removeItem(index){
+                    const swalWithBootstrapButtons = Swal.mixin({
+                        customClass: {
+                            confirmButton: "btn btn-success " ,
+                            cancelButton: "btn btn-danger me-2"
+                        },
+                        buttonsStyling: false
+                    });
+                    swalWithBootstrapButtons.fire({
+                        title: "Are you sure?",
+                        text: "You want to remove this product from cart?",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Remove it",
+                        cancelButtonText: "Cancel",
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            swalWithBootstrapButtons.fire({
+                            title: "Deleted!",
+                            text: "Your product has been removed!",
+                            icon: "success"
+                            });
+                            this.cart.splice(index,1)
+                        }
+                    });
+
+                },
+                increaseQty(index){
+                    this.cart[index].qty+=1;
+                },
+                decreaseQty(index){
+                    if(this.cart[index].qty>1){
+                        this.cart[index].qty-=1;
+                    }
+                },
+                async placeOrder(){
+                    try {
+                        Swal.fire({
+                            title: 'Processing your order...',
+                            text: 'Please wait a moment',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        let response = await fetch('/placeOrder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                ...this.form,
+                                shipping_fee: this.shipping_fee,
+                                total: this.totalPrice, // use computed totalPrice
+                                cart: this.cart
+                            })
+                        });
+
+                        let result = await response.text();
+
+                        Swal.fire({
+                            title: 'Order Placed!',
+                            text: result,
+                            icon: "success",
+                            allowOutsideClick: false,
+                            confirmButtonText: "OK"
+                        }).then(() => {
+                            localStorage.clear()
+                            window.location.href = "/"; // redirect to home page
+                        });
+
+                    } catch (err) {
+                        console.error(err);
+                        Swal.fire({
+                            title: "Error",
+                            text: "Something went wrong. Please try again!",
+                            icon: "error"
+                        });
+                    }
+                }
+            },
+            watch:{
+                cart:{
+                    handler(newCart){
+                        localStorage.setItem('cart',JSON.stringify(newCart));
+                        this.total = this.totalPrice;
+                    },
+                    deep:true
+                    
+                }
+            },
+            mounted(){
+                let cart = JSON.parse(localStorage.getItem('cart')??[])
+                this.cart = cart
+            }
+            
+        }).mount("#app");
+
+    </script>

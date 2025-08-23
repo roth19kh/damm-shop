@@ -1,0 +1,41 @@
+{% extends "master.html" %}
+{% block content %}
+<div class="container py-5">
+  <div class="row g-5">
+    
+    <!-- Product Image -->
+    <div class="col-md-6">
+      <img src="{{product.image}}" alt="Product" class="img-fluid rounded shadow-sm">
+    </div>
+
+    <!-- Product Details -->
+    <div class="col-md-6">
+      <h2 class="fw-bold mb-3">{{product.title}}</h2>
+      <p class="text-muted">Category: {{product.category}}</p>
+
+      <h4 class="text-danger fw-bold mb-4">${{product.price}}</h4>
+
+      <p class="text-secondary mb-4">
+        {{product.description}}
+      </p>
+
+
+
+      <!-- Additional Info -->
+      <ul class="list-unstyled text-secondary small">
+        <li><i class="bi bi-truck me-2"></i> Free shipping worldwide</li>
+        <li><i class="bi bi-shield-check me-2"></i> 2-year warranty</li>
+        <li><i class="bi bi-arrow-counterclockwise me-2"></i> 30-day returns</li>
+      </ul>
+        <div class="position-relative d-inline-block">
+            <button @click="addToCart({{product}})" class="btn btn-cart-outline">
+                <i class="bi bi-cart-plus me-2"></i>Add To Cart
+            </button>
+
+          </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
