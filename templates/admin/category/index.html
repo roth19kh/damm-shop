@@ -1,0 +1,200 @@
+{% extends 'admin/master.html' %}
+{% block content %}
+<div class="content-wrapper" id="app">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <!-- Modal -->
+                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="staticBackdropLabel">Category</h5>
+                      </div>
+                      <div class="modal-body">
+                        <div class="form-group">
+                            <label for="category_name">Category Name</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="category_name"
+                                   placeholder="Enter category name"
+                                   v-model="form.name"
+                            >
+                            <label for="description">Description</label>
+                            <textarea
+                                    class="form-control"
+                                    rows="3"
+                                    id="description"
+                                    v-model="form.description"
+                            ></textarea>
+                        </div>
+                      </div>
+                        <div class="row">
+                            <div class="col-12 p-3">
+                                <button style="float: left"
+                                        type="button"
+                                        class="btn btn-outline-danger ml-2"
+                                        @click="closePopup()">
+                                    Close</button>
+                                <button style="float: right"
+                                        type="button"
+                                        class="btn btn-outline-primary mr-2"
+                                        @click="saveCategory()">
+                                    Save & Change
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- End Modal -->
+
+                <div class="col-sm-6">
+                    <h1 class="m-0">Category Page</h1>
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <input
+                            type="button"
+                            class="btn btn-primary"
+                            value="Add"
+                            @click="openPopup()"
+                        />
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-borderless table-striped">
+                                <thead>
+                                    <tr class="bg-primary text-white">
+                                        <th>No</th>
+                                        <th>Category Name</th>
+                                        <th>Description</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="(item, index) in category_list"
+                                        :key="'category' + index"
+                                    >
+                                        <td>[[ index +1 ]]</td>
+                                        <td>[[item.name]]</td>
+                                        <td>[[item.description]]</td>
+                                        <td>
+                                            <input type="button" class="btn btn-outline-secondary mr-3" value="Edit" @click="getEdit(item)"/>
+                                            <input type="button" class="btn btn-danger" value="Delete" @click="deleteItem(item.id)" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const {createApp} = Vue
+    createApp({
+        delimiters: ['[[', ']]'],
+        data() {
+            return {
+                category_list: [
+
+                ],
+                form: {
+                    id: null,
+                    name: null,
+                    description: null
+                }
+            }
+        },
+created(){
+                this.fetchData()
+            },
+        methods: {
+
+            openPopup() {
+                this.resetForm()
+                $('#popup_modal').modal('show')
+            },
+            closePopup() {
+                $('#popup_modal').modal('hide')
+            },
+            resetForm() {
+                this.form = { id: null, name: null, description: null }
+            },
+            getEdit(item){
+                this.form.id = item.id
+                this.form.name = item.name
+                this.form.description = item.description
+                $('#popup_modal').modal('show')
+            },
+            saveCategory() {
+                if (this.form.id) {
+                    // Update existing category
+                    let index = this.category_list.findIndex(c => c.id === this.form.id)
+                    if (index !== -1) {
+                        this.category_list[index] = { ...this.form }
+                    }
+                } else {
+                    // Add new category
+                    let newId = this.category_list.length > 0
+                        ? Math.max(...this.category_list.map(c => c.id)) + 1
+                        : 1
+                    this.category_list.push({ id: newId, ...this.form })
+                }
+                this.closePopup()
+            },
+            deleteItem(id) {
+                let currentIndex = this.category_list.findIndex(c => c.id === id)
+                if (currentIndex !== -1) {
+                    Swal.fire({
+                      title: "Are you sure?",
+                      text: "You won't be able to revert this!",
+                      icon: "warning",
+                      showCancelButton: true,
+                      confirmButtonColor: "#3085d6",
+                      cancelButtonColor: "#d33",
+                      confirmButtonText: "Yes, delete it!"
+                    }).then((result) => {
+                      if (result.isConfirmed) {
+                        this.category_list.splice(currentIndex, 1)
+                        Swal.fire({
+                          title: "Success",
+                          icon: "success",
+                          draggable: true
+                        });
+                      }
+                    });
+                }
+            },
+            fetchData(){
+                let vm = this
+                $.LoadingOverlay("show");
+                axios.get('/admin/category/list', {
+                    firstName: 'Fred',
+                    lastName: 'Flintstone'
+                })
+                        .then(function (response) {
+                            vm.category_list=response.data
+                            $.LoadingOverlay("hide");
+                        })
+                        .catch(function (error) {
+                            console.log(error);
+                        });
+
+            },
+        }
+    }).mount('#app')
+</script>
+{% endblock %}
