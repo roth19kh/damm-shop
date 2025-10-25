@@ -18,7 +18,7 @@ def category_list():
 
 
 @app.post("/admin/create")
-def category_index():
+def category_create():
     return "Created category"
 
 

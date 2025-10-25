@@ -2,6 +2,6 @@
 from routes.front.main import *
 #admin
 from routes.admin.dashboard import *
-#catrgory
+#catergory
 from routes.admin.category import *
 
