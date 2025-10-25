@@ -6,15 +6,20 @@ from datetime import datetime
 from flask_mail import Mail,Message
 
 
-@app.route("/admin/category")
+@app.get("/admin/category")
 def category_index():
     return render_template("admin/category/index.html" ,module='category')
 
 
-@app.route("/admin/category/list")
+@app.get("/admin/category/list")
 def category_list():
     categories = get_category_list()
     return categories
+
+
+@app.post("/admin/create")
+def category_index():
+    return "Created category"
 
 
 def get_category_list():

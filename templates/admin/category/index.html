@@ -21,7 +21,15 @@
                                    placeholder="Enter category name"
                                    v-model="form.name"
                             >
+                            <!--?Image-->
+                            <label for="image">Image</label>
+                            <input type="file"
+                                   class="form-control"
+                                   id="image"
+                                   v-model="form.image"
+                            >
                             <label for="description">Description</label>
+
                             <textarea
                                     class="form-control"
                                     rows="3"
@@ -40,7 +48,8 @@
                                 <button style="float: right"
                                         type="button"
                                         class="btn btn-outline-primary mr-2"
-                                        @click="saveCategory()">
+                                        @click="createCategory()">
+
                                     Save & Change
                                 </button>
                             </div>
@@ -114,12 +123,13 @@
                 form: {
                     id: null,
                     name: null,
+                    image: null,
                     description: null
                 }
             }
         },
-created(){
-                this.fetchData()
+        created(){
+                this.fetchCategory()
             },
         methods: {
 
@@ -178,15 +188,25 @@ created(){
                     });
                 }
             },
-            fetchData(){
+            fetchCategory(){
                 let vm = this
                 $.LoadingOverlay("show");
-                axios.get('/admin/category/list', {
-                    firstName: 'Fred',
-                    lastName: 'Flintstone'
-                })
+                axios.get('/admin/category/list')
                         .then(function (response) {
                             vm.category_list=response.data
+                            $.LoadingOverlay("hide");
+                        })
+                        .catch(function (error) {
+                            console.log(error);
+                        });
+
+            },
+            createCategory() {
+                let vm = this
+                $.LoadingOverlay("show");
+                axios.post('/admin/category/create',this.form)
+                        .then(function (response) {
+                            console.log(response)
                             $.LoadingOverlay("hide");
                         })
                         .catch(function (error) {
