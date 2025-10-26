@@ -26,7 +26,7 @@
                             <input type="file"
                                    class="form-control"
                                    id="image"
-                                   v-model="form.image"
+
                             >
                             <label for="description">Description</label>
 
@@ -49,7 +49,6 @@
                                         type="button"
                                         class="btn btn-outline-primary mr-2"
                                         @click="createCategory()">
-
                                     Save & Change
                                 </button>
                             </div>
@@ -138,6 +137,7 @@
                 $('#popup_modal').modal('show')
             },
             closePopup() {
+                this.clearForm()
                 $('#popup_modal').modal('hide')
             },
             resetForm() {
@@ -204,16 +204,25 @@
             createCategory() {
                 let vm = this
                 $.LoadingOverlay("show");
-                axios.post('/admin/category/create',this.form)
+                axios.post('/admin/category/create', this.form)
                         .then(function (response) {
-                            console.log(response)
+                            vm.closePopup()
                             $.LoadingOverlay("hide");
                         })
                         .catch(function (error) {
+                            alert('error' + error)
                             console.log(error);
+                            $.LoadingOverlay("hide");
                         });
-
             },
+            clearForm() {
+                this.form = {
+                    id: null,
+                    name: null,
+                    image: null,
+                    description: null
+                }
+            }
         }
     }).mount('#app')
 </script>

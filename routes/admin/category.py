@@ -1,5 +1,6 @@
-from app import app
+from app import app, db, request
 from flask import render_template
+from models.category import Category
 
 import requests
 from datetime import datetime
@@ -17,8 +18,14 @@ def category_list():
     return categories
 
 
-@app.post("/admin/create")
+@app.post("/admin/category/create")
 def category_create():
+    form = request.get_json()
+    categories = Category(name=form.get('name'),
+                          description=form.get('description'),
+                          )
+    db.session.add(categories)
+    db.session.commit()
     return "Created category"
 
 
