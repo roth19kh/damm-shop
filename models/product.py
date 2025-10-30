@@ -11,3 +11,4 @@ class Product(db.Model):
     category_id = db.Column(db.Integer)
     image = db.Column(db.String(128), nullable=True)
     stock = db.Column(db.Integer, default=0)
+

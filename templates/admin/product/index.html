@@ -1,0 +1,320 @@
+{% extends 'admin/master.html' %}
+{% block content %}
+<div class="content-wrapper" id="app">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <!-- Modal -->
+                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                  <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="staticBackdropLabel">Product</h5>
+                      </div>
+                      <div class="modal-body">
+                        <div class="form-group">
+                            <label for="title">Product Name</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="title"
+                                   placeholder="Enter product name"
+                                   v-model="form.title"
+                            >
+                            <label for="price">Price</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="price"
+                                   placeholder="Enter product price"
+                                   v-model="form.price"
+                                   step="0.01"
+                            >
+                            <label for="stock">Stock</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="stock"
+                                   placeholder="Enter stock quantity"
+                                   v-model="form.stock"
+                            >
+                            <label for="category">Category</label>
+                            <select class="form-control" id="category" v-model="form.category">
+                                <option value="">Select Category</option>
+                                <option v-for="cat in categories" :value="cat.id">[[cat.name]]</option>
+                            </select>
+                            <label for="image">Product Image</label>
+                            <input type="file"
+                                   class="form-control"
+                                   id="image"
+                                   @change="onFileChange"
+                                   accept="image/*"
+                            >
+                            <div v-if="form.image" class="mt-2">
+                                <img :src="form.image" style="max-width: 100px; max-height: 100px;" class="img-thumbnail">
+                            </div>
+                        </div>
+                      </div>
+                        <div class="row">
+                            <div class="col-12 p-3">
+                                <button style="float: left"
+                                        type="button"
+                                        class="btn btn-outline-danger ml-2"
+                                        @click="closePopup()">
+                                    Close</button>
+                                <button style="float: right"
+                                        type="button"
+                                        class="btn btn-outline-primary mr-2"
+                                        @click="createProduct()">
+                                    [[ form.id ? 'Update' : 'Create' ]]
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- End Modal -->
+
+                <div class="col-sm-6">
+                    <h1 class="m-0">Product Management</h1>
+                </div>
+                <div class="col-sm-6 text-right">
+                    <input
+                        type="button"
+                        class="btn btn-primary"
+                        value="Add Product"
+                        @click="openPopup()"
+                    />
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-borderless table-striped">
+                                <thead>
+                                    <tr class="bg-primary text-white">
+                                        <th>No</th>
+                                        <th>Image</th>
+                                        <th>Name</th>
+                                        <th>Price</th>
+                                        <th>Cost</th>
+                                        <th>Stock</th>
+                                        <th>Category</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="(item, index) in product_list"
+                                        :key="'product' + index"
+                                    >
+                                        <td>[[ index + 1 ]]</td>
+                                        <td>
+                                            <img v-if="item.image" :src="item.image"
+                                                 style="width: 50px; height: 50px; object-fit: cover;" class="img-thumbnail">
+                                            <span v-else>No Image</span>
+                                        </td>
+                                        <td>[[item.title]]</td>
+                                        <td>$[[item.price]]</td>
+                                        <td>$[[item.cost]]</td>
+                                        <td>[[item.stock]]</td>
+                                        <td>[[getCategoryName(item.category)]]</td>
+                                        <td>
+                                            <input type="button" class="btn btn-outline-secondary mr-3" value="Edit" @click="getEdit(item)"/>
+                                            <input type="button" class="btn btn-danger" value="Delete" @click="deleteProduct(item.id)" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const {createApp} = Vue
+    createApp({
+        delimiters: ['[[', ']]'],
+        data() {
+            return {
+                product_list: [],
+                categories: [],
+                form: {
+                    id: null,
+                    title: null,
+                    price: null,
+                    stock: 0,
+                    category: null,
+                    image: null,
+                    imageFile: null
+                }
+            }
+        },
+        created(){
+            this.fetchProducts()
+            this.fetchCategories()
+        },
+
+        methods: {
+            onFileChange(e) {
+                this.form.imageFile = e.target.files[0] || null;
+                if (this.form.imageFile) {
+                    this.form.image = URL.createObjectURL(this.form.imageFile);
+                }
+            },
+            openPopup() {
+                this.resetForm()
+                $('#popup_modal').modal('show')
+            },
+            closePopup() {
+                this.clearForm()
+                $('#popup_modal').modal('hide')
+            },
+            resetForm() {
+                this.form = {
+                    id: null,
+                    title: null,
+                    price: null,
+                    stock: 0,
+                    category: null,
+                    image: null,
+                    imageFile: null
+                }
+            },
+            getEdit(item){
+                this.form.id = item.id
+                this.form.title = item.title
+                this.form.price = item.price
+                this.form.stock = item.stock
+                this.form.category = item.category
+                this.form.image = item.image
+                $('#popup_modal').modal('show')
+            },
+            getCategoryName(categoryId) {
+                const category = this.categories.find(cat => cat.id === categoryId);
+                return category ? category.name : 'Unknown';
+            },
+            fetchProducts() {
+                let vm = this
+                $.LoadingOverlay("show");
+                axios.get('/admin/product/list', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.product_list = response.data
+                    $.LoadingOverlay("hide");
+                })
+                .catch(function (error) {
+                    console.log('Error fetching products:', error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+            fetchCategories() {
+                let vm = this
+                axios.get('/admin/category/list', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.categories = response.data
+                })
+                .catch(function (error) {
+                    console.log('Error fetching categories:', error);
+                });
+            },
+            createProduct() {
+                let vm = this
+                let input = new FormData();
+
+                // Append all form data to the FormData object
+                input.append('id', this.form.id)
+                input.append('title', this.form.title)
+                input.append('price', this.form.price)
+                input.append('stock', this.form.stock)
+                input.append('category', this.form.category)
+                if (this.form.imageFile) {
+                    input.append('image', this.form.imageFile)
+                }
+
+                // Determine the URL based on whether we're creating or updating
+                let url = this.form.id ? '/admin/product/update' : '/admin/product/create'
+
+                axios.post(url, input, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    }
+                })
+                .then(function (response) {
+                    vm.closePopup()
+                    vm.fetchProducts() // Refresh the list
+                    $.LoadingOverlay("hide");
+                    Swal.fire({
+                        title: "Success",
+                        text: vm.form.id ? "Product updated successfully!" : "Product created successfully!",
+                        icon: "success",
+                        draggable: true
+                    });
+                })
+                .catch(function (error) {
+                    alert('Error: ' + error)
+                    console.log(error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+            clearForm() {
+                this.form = {
+                    id: null,
+                    title: null,
+                    price: null,
+                    stock: 0,
+                    category: null,
+                    image: null,
+                    imageFile: null
+                }
+            },
+            deleteProduct(product_id) {
+                let vm = this
+                let input = {
+                    product_id: product_id
+                };
+
+                Swal.fire({
+                    title: "Are you sure?",
+                    text: "You won't be able to revert this!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#3085d6",
+                    cancelButtonColor: "#d33",
+                    confirmButtonText: "Yes, delete it!"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        axios.post('/admin/product/delete', input)
+                            .then(function (response) {
+                                vm.fetchProducts() // Refresh the list
+                                Swal.fire({
+                                    title: "Deleted!",
+                                    text: "Product has been deleted.",
+                                    icon: "success",
+                                    draggable: true
+                                });
+                            })
+                            .catch(function (error) {
+                                alert('Error: ' + error)
+                                console.log(error);
+                            });
+                    }
+                });
+            },
+        }
+    }).mount('#app')
+</script>
+{% endblock %}

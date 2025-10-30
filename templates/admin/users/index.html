@@ -1,0 +1,277 @@
+{% extends 'admin/master.html' %}
+{% block content %}
+<div class="content-wrapper" id="app">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <!-- Modal -->
+                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="staticBackdropLabel">User</h5>
+                      </div>
+                      <div class="modal-body">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="name"
+                                   placeholder="Enter user name"
+                                   v-model="form.name"
+                            >
+                            <label for="email">Email</label>
+                            <input type="email"
+                                   class="form-control"
+                                   id="email"
+                                   placeholder="Enter user email"
+                                   v-model="form.email"
+                            >
+                            <label for="password">Password</label>
+                            <input type="password"
+                                   class="form-control"
+                                   id="password"
+                                   placeholder="Enter password (leave blank to keep current)"
+                                   v-model="form.password"
+                            >
+                            <label for="gender">Gender</label>
+                            <select class="form-control" id="gender" v-model="form.gender">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <div class="form-check mt-3">
+                                <input type="checkbox" class="form-check-input" id="is_admin" v-model="form.is_admin">
+                                <label class="form-check-label" for="is_admin">Admin User</label>
+                            </div>
+                        </div>
+                      </div>
+                        <div class="row">
+                            <div class="col-12 p-3">
+                                <button style="float: left"
+                                        type="button"
+                                        class="btn btn-outline-danger ml-2"
+                                        @click="closePopup()">
+                                    Close</button>
+                                <button style="float: right"
+                                        type="button"
+                                        class="btn btn-outline-primary mr-2"
+                                        @click="createUser()">
+                                    [[ form.id ? 'Update' : 'Create' ]]
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- End Modal -->
+
+                <div class="col-sm-6">
+                    <h1 class="m-0">User Management</h1>
+                </div>
+                <div class="col-sm-6 text-right">
+                    <input
+                        type="button"
+                        class="btn btn-primary"
+                        value="Add User"
+                        @click="openPopup()"
+                    />
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-borderless table-striped">
+                                <thead>
+                                    <tr class="bg-primary text-white">
+                                        <th>No</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Gender</th>
+                                        <th>Admin</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="(item, index) in user_list"
+                                        :key="'user' + index"
+                                    >
+                                        <td>[[ index + 1 ]]</td>
+                                        <td>[[item.name]]</td>
+                                        <td>[[item.email]]</td>
+                                        <td>[[item.gender]]</td>
+                                        <td>
+                                            <span v-if="item.is_admin" class="badge bg-success">Admin</span>
+                                            <span v-else class="badge bg-secondary">User</span>
+                                        </td>
+                                        <td>
+                                            <input type="button" class="btn btn-outline-secondary mr-3" value="Edit" @click="getEdit(item)"/>
+                                            <input type="button" class="btn btn-danger" value="Delete" @click="deleteUser(item.id)" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const {createApp} = Vue
+    createApp({
+        delimiters: ['[[', ']]'],
+        data() {
+            return {
+                user_list: [],
+                form: {
+                    id: null,
+                    name: null,
+                    email: null,
+                    password: null,
+                    gender: 'male',
+                    is_admin: false
+                }
+            }
+        },
+        created(){
+            this.fetchUsers()
+        },
+
+        methods: {
+            openPopup() {
+                this.resetForm()
+                $('#popup_modal').modal('show')
+            },
+            closePopup() {
+                this.clearForm()
+                $('#popup_modal').modal('hide')
+            },
+            resetForm() {
+                this.form = {
+                    id: null,
+                    name: null,
+                    email: null,
+                    password: null,
+                    gender: 'male',
+                    is_admin: false
+                }
+            },
+            getEdit(item){
+                this.form.id = item.id
+                this.form.name = item.name
+                this.form.email = item.email
+                this.form.gender = item.gender
+                this.form.is_admin = item.is_admin
+                // Don't set password for security
+                $('#popup_modal').modal('show')
+            },
+            fetchUsers() {
+                let vm = this
+                $.LoadingOverlay("show");
+                axios.get('/admin/user/list', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.user_list = response.data
+                    $.LoadingOverlay("hide");
+                })
+                .catch(function (error) {
+                    console.log('Error fetching users:', error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+            createUser() {
+                let vm = this
+                let input = {
+                    id: this.form.id,
+                    name: this.form.name,
+                    email: this.form.email,
+                    password: this.form.password, // Will be hashed on backend
+                    gender: this.form.gender,
+                    is_admin: this.form.is_admin
+                };
+
+                // Determine the URL based on whether we're creating or updating
+                let url = this.form.id ? '/admin/user/update' : '/admin/user/create'
+
+                axios.post(url, input, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.closePopup()
+                    vm.fetchUsers() // Refresh the list
+                    $.LoadingOverlay("hide");
+                    Swal.fire({
+                        title: "Success",
+                        text: vm.form.id ? "User updated successfully!" : "User created successfully!",
+                        icon: "success",
+                        draggable: true
+                    });
+                })
+                .catch(function (error) {
+                    alert('Error: ' + error.response.data.error)
+                    console.log(error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+            clearForm() {
+                this.form = {
+                    id: null,
+                    name: null,
+                    email: null,
+                    password: null,
+                    gender: 'male',
+                    is_admin: false
+                }
+            },
+            deleteUser(user_id) {
+                let vm = this
+                let input = {
+                    user_id: user_id
+                };
+
+                Swal.fire({
+                    title: "Are you sure?",
+                    text: "You won't be able to revert this!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#3085d6",
+                    cancelButtonColor: "#d33",
+                    confirmButtonText: "Yes, delete it!"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        axios.post('/admin/user/delete', input)
+                            .then(function (response) {
+                                vm.fetchUsers() // Refresh the list
+                                Swal.fire({
+                                    title: "Deleted!",
+                                    text: "User has been deleted.",
+                                    icon: "success",
+                                    draggable: true
+                                });
+                            })
+                            .catch(function (error) {
+                                alert('Error: ' + error.response.data.error)
+                                console.log(error);
+                            });
+                    }
+                });
+            },
+        }
+    }).mount('#app')
+</script>
+{% endblock %}

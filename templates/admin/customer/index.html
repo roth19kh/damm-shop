@@ -1,0 +1,243 @@
+{% extends 'admin/master.html' %}
+{% block content %}
+<div class="content-wrapper" id="app">
+    <!-- Content Header (Page header) -->
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <!-- Modal -->
+                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="staticBackdropLabel">Customer</h5>
+                      </div>
+                      <div class="modal-body">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="name"
+                                   placeholder="Enter customer name"
+                                   v-model="form.name"
+                            >
+                            <label for="email">Email</label>
+                            <input type="email"
+                                   class="form-control"
+                                   id="email"
+                                   placeholder="Enter customer email"
+                                   v-model="form.email"
+                            >
+                            <label for="gender">Gender</label>
+                            <select class="form-control" id="gender" v-model="form.gender">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <label for="profile">Profile</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="profile"
+                                   placeholder="Enter profile info"
+                                   v-model="form.profile"
+                            >
+                        </div>
+                      </div>
+                        <div class="row">
+                            <div class="col-12 p-3">
+                                <button style="float: left"
+                                        type="button"
+                                        class="btn btn-outline-danger ml-2"
+                                        @click="closePopup()">
+                                    Close</button>
+                                <button style="float: right"
+                                        type="button"
+                                        class="btn btn-outline-primary mr-2"
+                                        @click="updateCustomer()">
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- End Modal -->
+
+                <div class="col-sm-6">
+                    <h1 class="m-0">Customer Management</h1>
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-borderless table-striped">
+                                <thead>
+                                    <tr class="bg-primary text-white">
+                                        <th>No</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Gender</th>
+                                        <th>Profile</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="(item, index) in customer_list"
+                                        :key="'customer' + index"
+                                    >
+                                        <td>[[ index +1 ]]</td>
+                                        <td>[[item.name]]</td>
+                                        <td>[[item.email]]</td>
+                                        <td>[[item.gender]]</td>
+                                        <td>[[item.profile]]</td>
+                                        <td>
+                                            <input type="button" class="btn btn-outline-secondary mr-3" value="Edit" @click="getEdit(item)"/>
+                                            <input type="button" class="btn btn-danger" value="Delete" @click="deleteCustomer(item.id)" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    const {createApp} = Vue
+    createApp({
+        delimiters: ['['[', ']]'],
+        data() {
+            return {
+                customer_list: [],
+                form: {
+                    id: null,
+                    name: null,
+                    email: null,
+                    gender: 'male',
+                    profile: null
+                }
+            }
+        },
+        created(){
+            this.fetchCustomers()
+        },
+
+        methods: {
+            getEdit(item){
+                this.form.id = item.id
+                this.form.name = item.name
+                this.form.email = item.email
+                this.form.gender = item.gender
+                this.form.profile = item.profile
+                $('#popup_modal').modal('show')
+            },
+            closePopup() {
+                this.clearForm()
+                $('#popup_modal').modal('hide')
+            },
+            fetchCustomers() {
+                let vm = this
+                $.LoadingOverlay("show");
+                axios.get('/admin/customer/list', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.customer_list = response.data
+                    $.LoadingOverlay("hide");
+                })
+                .catch(function (error) {
+                    console.log(error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+
+            updateCustomer() {
+                let vm = this
+                let input = {
+                    id: this.form.id,
+                    name: this.form.name,
+                    email: this.form.email,
+                    gender: this.form.gender,
+                    profile: this.form.profile
+                };
+
+                axios.post('/admin/customer/update', input, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(function (response) {
+                    vm.closePopup()
+                    vm.fetchCustomers() // Refresh the list
+                    $.LoadingOverlay("hide");
+                    Swal.fire({
+                        title: "Success",
+                        text: "Customer updated successfully!",
+                        icon: "success",
+                        draggable: true
+                    });
+                })
+                .catch(function (error) {
+                    alert('Error: ' + error)
+                    console.log(error);
+                    $.LoadingOverlay("hide");
+                });
+            },
+            clearForm() {
+                this.form = {
+                    id: null,
+                    name: null,
+                    email: null,
+                    gender: 'male',
+                    profile: null
+                }
+            },
+
+            deleteCustomer(customer_id) {
+                let vm = this
+                let input = {
+                    customer_id: customer_id
+                };
+
+                Swal.fire({
+                    title: "Are you sure?",
+                    text: "You won't be able to revert this!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#3085d6",
+                    cancelButtonColor: "#d33",
+                    confirmButtonText: "Yes, delete it!"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        axios.post('/admin/customer/delete', input)
+                            .then(function (response) {
+                                vm.fetchCustomers() // Refresh the list
+                                Swal.fire({
+                                    title: "Deleted!",
+                                    text: "Customer has been deleted.",
+                                    icon: "success",
+                                    draggable: true
+                                });
+                            })
+                            .catch(function (error) {
+                                alert('Error: ' + error)
+                                console.log(error);
+                            });
+                    }
+                });
+            },
+        }
+    }).mount('#app')
+</script>
+{% endblock %}

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="https://images.seeklogo.com/logo-png/39/1/shop-logo-png_seeklogo-392170.png">
   <title>DAMM</title>
 
   <!-- Google Font: Source Sans Pro -->
@@ -35,6 +36,13 @@
     </ul>
 
     <ul class="navbar-nav ml-auto">
+      <!-- Admin Welcome -->
+      <li class="nav-item">
+        <span class="nav-link">
+          <i class="fas fa-user-shield"></i>
+          Welcome, {{ session.get('user_name', 'Admin') }}
+        </span>
+      </li>
       <!-- Notifications -->
       <li class="nav-item dropdown">
         <a class="nav-link" data-toggle="dropdown" href="#">
@@ -85,44 +93,50 @@
                class="img-circle elevation-2" alt="User Image">
         </div>
         <div class="info">
-          <a href="#" class="d-block">DAMM BRO</a>
+          <a href="#" class="d-block">
+            <i class="fas fa-user-shield"></i>
+            {{ session.get('user_name', 'DAMM Admin') }}
+          </a>
+          <small class="text-success">
+            <i class="fas fa-circle"></i> Administrator
+          </small>
         </div>
       </div>
 
       <nav class="mt-2">
         <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
           <li class="nav-item">
-            <a href="{{ url_for ('dashboard')}}" class="nav-link {{ 'active' if module=='dashboard'}}">
+            <a href="{{ url_for('dashboard') }}" class="nav-link {{ 'active' if module=='dashboard'}}">
               <i class="nav-icon fas fa-th"></i>
               <p>Dashboard</p>
             </a>
           </li>
           <li class="nav-item">
-            <a href="{{ url_for ('category_index')}}" class="nav-link {{ 'active' if module=='category'}}">
+            <a href="{{ url_for('category_index') }}" class="nav-link {{ 'active' if module=='category'}}">
               <i class="nav-icon fas fa-layer-group"></i>
               <p>Category</p>
             </a>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">
+            <a href="{{ url_for('product_index') }}" class="nav-link {{ 'active' if module=='product'}}">
               <i class="nav-icon fas fa-box"></i>
               <p>Products</p>
             </a>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">
+            <a href="{{ url_for('user_index') }}" class="nav-link {{ 'active' if module=='user'}}">
               <i class="nav-icon fas fa-users"></i>
               <p>Users</p>
             </a>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">
+            <a href="{{ url_for('customer_index') }}" class="nav-link {{ 'active' if module=='customer'}}">
               <i class="nav-icon fas fa-user-lock"></i>
               <p>Customers</p>
             </a>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">
+            <a href="{{ url_for('order_index') }}" class="nav-link {{ 'active' if module=='order'}}">
               <i class="nav-icon fas fa-cart-arrow-down"></i>
               <p>Order Management</p>
             </a>

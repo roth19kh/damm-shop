@@ -2,65 +2,241 @@
 {% block content %}
 
 <!-- Big Hero Slider -->
-<div id="bigSlider" class="carousel slide mb-5 shadow-lg rounded-4 overflow-hidden"data-bs-ride="carousel"
+<div id="bigSlider" class="carousel slide mb-5 shadow-lg rounded-4 overflow-hidden" data-bs-ride="carousel"
      data-bs-interval="3000">
-  <div class="carousel-inner">
-    <div class="carousel-item"
-         v-for="(product, index) in products.slice(0, 20)"
-         :class="{ active: index === 0 }">
+<div class="carousel-inner">
+    {% for product in products[:5] %}  <!-- Show first 5 products in slider -->
+<div class="carousel-item {% if loop.first %}active{% endif %}">
+    <!-- Flex container with padding -->
+<div class="d-flex align-items-center justify-content-between px-5 py-4"
+     style="height:320px; background: linear-gradient(135deg, #f8f9fa, #e9ecef);">
 
-      <!-- Flex container with padding -->
-      <div class="d-flex align-items-center justify-content-between px-5 py-4"
-           style="height:320px; background: linear-gradient(135deg, #f8f9fa, #e9ecef);">
+    <!-- Product Image (left) -->
+    <img src="{{ product.image }}" class="img-fluid me-5"
+         style="max-height:240px; width:auto; object-fit:contain;margin-left:100px;">
 
-        <!-- Product Image (left) -->
-        <img :src="product.image" class="img-fluid me-5"
-             style="max-height:240px; width:auto; object-fit:contain;margin-left:100px;">
+    <!-- Product Info (right) -->
+<div class="text-end ms-5" style="margin-right:100px">
+    <h4 class="fw-bold text-dark mb-2">{{ product.title }}</h4>
+<p class="fs-5 fw-bold text-success mb-3">${{ "%.2f"|format(product.price) }}</p>
+    <a href="/product?pro_id={{ product.id }}" class="btn btn-success rounded-pill px-4 py-2">Shop Now</a>
+</div>
+</div>
+</div>
+    {% endfor %}
+</div>
 
-        <!-- Product Info (right) -->
-        <div class="text-end ms-5" style="margin-right:100px">
-          <h4 class="fw-bold text-dark mb-2">[[ product.title ]]</h4>
-          <p class="fs-5 fw-bold text-success mb-3">$[[ product.price.toFixed(2) ]]</p>
-          <a :href="`/product?pro_id=${product.id}`" class="btn btn-success rounded-pill px-4 py-2">Shop Now</a>
+    <!-- Controls -->
+    <button class="carousel-control-prev" type="button" data-bs-target="#bigSlider" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon"></span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#bigSlider" data-bs-slide="next">
+        <span class="carousel-control-next-icon"></span>
+    </button>
+</div>
+
+<!-- Products Grid -->
+<div class="row">
+    {% for product in products %}
+<div class="col-6 col-md-3 mb-4">
+<div class="card border-0 rounded-4 shadow-sm h-100 text-center product-card">
+    <!-- Product Image with link to detail page -->
+    <a href="/product?pro_id={{ product.id }}" class="text-decoration-none">
+        <div class="bg-light p-3" style="height: 200px; display: flex; align-items: center; justify-content: center;">
+            <img src="{{ product.image }}" class="img-fluid" alt="{{ product.title }}"
+                 style="max-height: 180px; object-fit: contain;">
         </div>
-
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Controls -->
-  <button class="carousel-control-prev" type="button" data-bs-target="#bigSlider" data-bs-slide="prev">
-    <span class="carousel-control-prev-icon"></span>
-  </button>
-  <button class="carousel-control-next" type="button" data-bs-target="#bigSlider" data-bs-slide="next">
-    <span class="carousel-control-next-icon"></span>
-  </button>
-</div>
-
-
-
-
-    <div class="row">
-<div class="col-6 col-md-3 mb-4" v-for="product in products" :key="product.id">
-    <a :href="`/product?pro_id=${product.id}`" class="text-decoration-none text-dark">
-  <div class="card border-0 rounded-4 shadow-sm h-100 text-center product-card">
-    <!-- Product Image -->
-    <div class="bg-light p-3">
-      <img :src="product.image" class="img-fluid" :alt="product.title" style="height:180px; object-fit:contain;">
-    </div>
     </a>
-    <!-- Product Info -->
-    <div class="card-body p-3 d-flex flex-column">
-      <h6 class="card-title text-truncate mb-1">[[product.title]]</h6>
-      <p class="text-muted small mb-2">[[ product.category]]</p>
-      <p class="fw-bold text-green mb-3">$[[ product.price.toFixed(2) ]]</p>
 
-      <button class="btn btn-sm rounded-pill mt-auto" style="background-color:#029f24; color:white; border:none;" @click="addToCart(product)">Add To Cart</button>
-    </div>
-  </div>
+    <!-- Product Info -->
+<div class="card-body p-3 d-flex flex-column">
+    <!-- Product title with link to detail page -->
+    <a href="/product?pro_id={{ product.id }}" class="text-decoration-none text-dark">
+        <h6 class="card-title text-truncate mb-1">{{ product.title }}</h6>
+    </a>
+    <p class="text-muted small mb-2">{{ product.category }}</p>
+<p class="fw-bold text-success mb-2">${{ "%.2f"|format(product.price) }}</p>
+    {% if product.stock is defined %}
+    <small class="text-muted mb-2">Stock: {{ product.stock }}</small>
+    {% endif %}
+
+    <!-- Add to Cart button - only adds to cart, no navigation -->
+    <button class="btn btn-sm rounded-pill mt-auto add-to-cart-btn"
+            style="background-color:#029f24; color:white; border:none;"
+            data-product-id="{{ product.id }}"
+            data-product-title="{{ product.title }}"
+            data-product-price="{{ product.price }}"
+            data-product-image="{{ product.image }}"
+            type="button">
+        Add To Cart
+    </button>
+</div>
+</div>
+</div>
+    {% endfor %}
 </div>
 
+<!-- No Products Message -->
+{% if not products %}
+<div class="row">
+    <div class="col-12 text-center">
+        <div class="alert alert-warning">
+            <h4>No products found</h4>
+            <p>No products are available at the moment.</p>
+        </div>
     </div>
+</div>
+{% endif %}
 
+{% endblock %}
+
+{% block script %}
+<script>
+// Cart functionality
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+// Function to update cart badge
+function updateCartBadge() {
+    const cartBadge = document.querySelector('.cart-badge');
+    if (cartBadge) {
+        const totalItems = cart.reduce((total, item) => total + (item.qty || 1), 0);
+        cartBadge.textContent = totalItems;
+        cartBadge.style.display = totalItems > 0 ? 'block' : 'none';
+        console.log('Cart badge updated:', totalItems, 'items');
+    }
+}
+
+// Function to add product to cart
+function addToCart(product) {
+    console.log('Adding to cart:', product);
+
+    // Check if product already in cart
+    const existingItem = cart.find(item => item.id === product.id);
+
+    if (existingItem) {
+        existingItem.qty = (existingItem.qty || 1) + 1;
+        console.log('Increased quantity for:', product.title, 'New qty:', existingItem.qty);
+    } else {
+        product.qty = 1;
+        cart.push(product);
+        console.log('Added new product to cart:', product.title);
+    }
+
+    // Update cart in localStorage
+    localStorage.setItem('cart', JSON.stringify(cart));
+    console.log('Cart saved to localStorage:', cart);
+
+    // Update cart badge
+    updateCartBadge();
+
+    // Show success message
+if (typeof Swal !== 'undefined') {
+Swal.fire({
+    title: "Added to Cart!",
+text: `${product.title} has been added to your cart.`,
+    icon: "success",
+    timer: 1500,
+    showConfirmButton: false
+});
+} else {
+    alert(`${product.title} added to cart!`);
+}
+}
+
+// Initialize cart functionality when page loads
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('Page loaded, initializing cart...');
+
+    // Update cart badge on page load
+    updateCartBadge();
+
+    // Add click event listeners to all Add to Cart buttons
+    const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+    console.log('Found', addToCartButtons.length, 'Add to Cart buttons');
+
+    addToCartButtons.forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const product = {
+                id: parseInt(this.getAttribute('data-product-id')),
+                title: this.getAttribute('data-product-title'),
+                price: parseFloat(this.getAttribute('data-product-price')),
+                image: this.getAttribute('data-product-image')
+            };
+
+            console.log('Button clicked for product:', product);
+            addToCart(product);
+        });
+    });
+
+    // Also add event delegation for dynamically loaded content
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('add-to-cart-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const product = {
+                id: parseInt(e.target.getAttribute('data-product-id')),
+                title: e.target.getAttribute('data-product-title'),
+                price: parseFloat(e.target.getAttribute('data-product-price')),
+                image: e.target.getAttribute('data-product-image')
+            };
+
+            console.log('Dynamic button clicked for product:', product);
+            addToCart(product);
+        }
+    });
+});
+
+// Debug function to check cart
+function debugCart() {
+    console.log('Current cart:', cart);
+    console.log('LocalStorage cart:', localStorage.getItem('cart'));
+}
+</script>
+
+<style>
+    .product-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .add-to-cart-btn {
+        transition: background-color 0.3s ease;
+        cursor: pointer;
+    }
+
+    .add-to-cart-btn:hover {
+        background-color: #027a1c !important;
+        transform: scale(1.05);
+    }
+
+    /* Slider styles */
+    .carousel-item {
+        transition: transform 0.6s ease-in-out;
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+        width: 5%;
+    }
+
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+        padding: 15px;
+    }
+
+    /* Make product image clickable with pointer cursor */
+    .card a img {
+        cursor: pointer;
+    }
+</style>
 {% endblock %}

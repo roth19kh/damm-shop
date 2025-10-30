@@ -3,23 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="https://images.seeklogo.com/logo-png/39/1/shop-logo-png_seeklogo-392170.png">
+    <link rel="icon" type="image/png"
+          href="https://images.seeklogo.com/logo-png/39/1/shop-logo-png_seeklogo-392170.png">
     <title>{% block title %}DAMM{% endblock %}</title>
-
-</head>
     {%include"style.html"%}
+</head>
 <body>
-    <div id="app">
-        <div class="container mt-4 mb-3">
-            {%include "navbar.html"%}
-        </div>
-
-        <div class="container my-4">
-            {% block content %}{% endblock %}
-        </div>
+<div id="app">
+    <div class="container mt-4 mb-3">
+        {%include "navbar.html"%}
     </div>
-{% include "footer.html" %}
-    {%include"script.html"%}
 
+    <!-- Flash Messages -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="container my-4">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+{% include "footer.html" %}
+{%include"script.html"%}
+
+{% block script %}{% endblock %}
 </body>
 </html>
