@@ -6,60 +6,66 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <!-- Modal -->
-                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-                  <div class="modal-dialog">
-                    <div class="modal-content">
-                      <div class="modal-header">
-                        <h5 class="modal-title" id="staticBackdropLabel">Customer</h5>
-                      </div>
-                      <div class="modal-body">
-                        <div class="form-group">
-                            <label for="name">Full Name</label>
-                            <input type="text"
-                                   class="form-control"
-                                   id="name"
-                                   placeholder="Enter customer name"
-                                   v-model="form.name"
-                            >
-                            <label for="email">Email</label>
-                            <input type="email"
-                                   class="form-control"
-                                   id="email"
-                                   placeholder="Enter customer email"
-                                   v-model="form.email"
-                            >
-                            <label for="gender">Gender</label>
-                            <select class="form-control" id="gender" v-model="form.gender">
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                            <label for="profile">Profile</label>
-                            <input type="text"
-                                   class="form-control"
-                                   id="profile"
-                                   placeholder="Enter profile info"
-                                   v-model="form.profile"
-                            >
-                        </div>
-                      </div>
-                        <div class="row">
-                            <div class="col-12 p-3">
-                                <button style="float: left"
-                                        type="button"
-                                        class="btn btn-outline-danger ml-2"
+                <div class="modal fade" id="popup_modal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+                     aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="staticBackdropLabel">Edit Customer</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"
                                         @click="closePopup()">
-                                    Close</button>
-                                <button style="float: right"
-                                        type="button"
-                                        class="btn btn-outline-primary mr-2"
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="name">Full Name</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="name"
+                                           placeholder="Enter customer name"
+                                           v-model="form.name"
+                                    >
+                                    <label for="email">Email</label>
+                                    <input type="email"
+                                           class="form-control"
+                                           id="email"
+                                           placeholder="Enter customer email"
+                                           v-model="form.email"
+                                    >
+                                    <label for="gender">Gender</label>
+                                    <select class="form-control" id="gender" v-model="form.gender">
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                    <label for="profile">Profile</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="profile"
+                                           placeholder="Enter profile info"
+                                           v-model="form.profile"
+                                    >
+                                    <label for="is_admin" class="mt-2">
+                                        <input type="checkbox" id="is_admin" v-model="form.is_admin">
+                                        Administrator
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button"
+                                        class="btn btn-outline-danger"
+                                        @click="closePopup()">
+                                    Close
+                                </button>
+                                <button type="button"
+                                        class="btn btn-outline-primary"
                                         @click="updateCustomer()">
                                     Save Changes
                                 </button>
                             </div>
                         </div>
                     </div>
-                  </div>
                 </div>
                 <!-- End Modal -->
 
@@ -71,34 +77,60 @@
         <div class="container-fluid">
             <div class="col-12">
                 <div class="card">
+                    <div class="card-header">
+                        <div class="card-tools">
+                            <button class="btn btn-primary" @click="addNewCustomer()">
+                                <i class="fas fa-plus"></i> Add New Customer
+                            </button>
+                        </div>
+                    </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-borderless table-striped">
                                 <thead>
-                                    <tr class="bg-primary text-white">
-                                        <th>No</th>
-                                        <th>Name</th>
-                                        <th>Email</th>
-                                        <th>Gender</th>
-                                        <th>Profile</th>
-                                        <th>Action</th>
-                                    </tr>
+                                <tr class="bg-primary text-white">
+                                    <th>No</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Gender</th>
+                                    <th>Profile</th>
+                                    <th>Admin</th>
+                                    <th>Action</th>
+                                </tr>
                                 </thead>
                                 <tbody>
-                                    <tr
-                                        v-for="(item, index) in customer_list"
-                                        :key="'customer' + index"
-                                    >
-                                        <td>[[ index +1 ]]</td>
-                                        <td>[[item.name]]</td>
-                                        <td>[[item.email]]</td>
-                                        <td>[[item.gender]]</td>
-                                        <td>[[item.profile]]</td>
-                                        <td>
-                                            <input type="button" class="btn btn-outline-secondary mr-3" value="Edit" @click="getEdit(item)"/>
-                                            <input type="button" class="btn btn-danger" value="Delete" @click="deleteCustomer(item.id)" />
-                                        </td>
-                                    </tr>
+                                <tr v-for="(item, index) in customer_list" :key="item.id">
+                                    <td v-text="index + 1"></td>
+                                    <td v-text="item.name"></td>
+                                    <td v-text="item.email"></td>
+                                    <td>
+                                        <span class="badge" :class="getGenderBadgeClass(item.gender)"
+                                              v-text="item.gender"></span>
+                                    </td>
+                                    <td v-text="item.profile || 'N/A'"></td>
+                                    <td>
+                                            <span class="badge"
+                                                  :class="item.is_admin ? 'badge-success' : 'badge-secondary'">
+                                                <span v-if="item.is_admin">Yes</span>
+                                                <span v-else>No</span>
+                                            </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm mr-2"
+                                                @click="getEdit(item)">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm"
+                                                @click="deleteCustomer(item.id)" :disabled="item.is_admin">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="customer_list.length === 0">
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        No customers found
+                                    </td>
+                                </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -112,103 +144,140 @@
 
 {% block script %}
 <script>
-    const {createApp} = Vue
+    const {createApp} = Vue;
+
     createApp({
-        delimiters: ['['[', ']]'],
         data() {
             return {
                 customer_list: [],
                 form: {
                     id: null,
-                    name: null,
-                    email: null,
+                    name: '',
+                    email: '',
                     gender: 'male',
-                    profile: null
-                }
+                    profile: '',
+                    is_admin: false
+                },
+                isEditing: false
             }
         },
-        created(){
-            this.fetchCustomers()
+        mounted() {
+            this.fetchCustomers();
         },
-
         methods: {
-            getEdit(item){
-                this.form.id = item.id
-                this.form.name = item.name
-                this.form.email = item.email
-                this.form.gender = item.gender
-                this.form.profile = item.profile
-                $('#popup_modal').modal('show')
+            getEdit(item) {
+                this.form.id = item.id;
+                this.form.name = item.name;
+                this.form.email = item.email;
+                this.form.gender = item.gender;
+                this.form.profile = item.profile || '';
+                this.form.is_admin = item.is_admin || false;
+                this.isEditing = true;
+                $('#popup_modal').modal('show');
             },
+
+            addNewCustomer() {
+                this.clearForm();
+                this.isEditing = false;
+                $('#popup_modal').modal('show');
+            },
+
             closePopup() {
-                this.clearForm()
-                $('#popup_modal').modal('hide')
+                this.clearForm();
+                $('#popup_modal').modal('hide');
             },
+
             fetchCustomers() {
-                let vm = this
+                let vm = this;
                 $.LoadingOverlay("show");
-                axios.get('/admin/customer/list', {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(function (response) {
-                    vm.customer_list = response.data
-                    $.LoadingOverlay("hide");
-                })
-                .catch(function (error) {
-                    console.log(error);
-                    $.LoadingOverlay("hide");
-                });
+                axios.get('/admin/customer/list')
+                        .then(function (response) {
+                            vm.customer_list = response.data;
+                            $.LoadingOverlay("hide");
+                        })
+                        .catch(function (error) {
+                            console.error('Error fetching customers:', error);
+                            $.LoadingOverlay("hide");
+                            Swal.fire({
+                                title: "Error!",
+                                text: "Failed to load customers",
+                                icon: "error"
+                            });
+                        });
             },
 
             updateCustomer() {
-                let vm = this
+                let vm = this;
                 let input = {
                     id: this.form.id,
                     name: this.form.name,
                     email: this.form.email,
                     gender: this.form.gender,
-                    profile: this.form.profile
+                    profile: this.form.profile,
+                    is_admin: this.form.is_admin
                 };
 
-                axios.post('/admin/customer/update', input, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(function (response) {
-                    vm.closePopup()
-                    vm.fetchCustomers() // Refresh the list
-                    $.LoadingOverlay("hide");
+                // Validate form
+                if (!this.form.name || !this.form.email) {
                     Swal.fire({
-                        title: "Success",
-                        text: "Customer updated successfully!",
-                        icon: "success",
-                        draggable: true
+                        title: "Validation Error!",
+                        text: "Please fill in all required fields",
+                        icon: "warning"
                     });
-                })
-                .catch(function (error) {
-                    alert('Error: ' + error)
-                    console.log(error);
-                    $.LoadingOverlay("hide");
-                });
+                    return;
+                }
+
+                const url = this.isEditing ? '/admin/customer/update' : '/admin/customer/create';
+
+                $.LoadingOverlay("show");
+                axios.post(url, input)
+                        .then(function (response) {
+                            vm.closePopup();
+                            vm.fetchCustomers();
+                            $.LoadingOverlay("hide");
+                            Swal.fire({
+                                title: "Success!",
+                                text: vm.isEditing ? "Customer updated successfully!" : "Customer created successfully!",
+                                icon: "success",
+                                timer: 2000
+                            });
+                        })
+                        .catch(function (error) {
+                            console.error('Error:', error);
+                            $.LoadingOverlay("hide");
+                            Swal.fire({
+                                title: "Error!",
+                                text: error.response?.data?.message || "Operation failed",
+                                icon: "error"
+                            });
+                        });
             },
+
             clearForm() {
                 this.form = {
                     id: null,
-                    name: null,
-                    email: null,
+                    name: '',
+                    email: '',
                     gender: 'male',
-                    profile: null
-                }
+                    profile: '',
+                    is_admin: false
+                };
+                this.isEditing = false;
             },
 
             deleteCustomer(customer_id) {
-                let vm = this
-                let input = {
-                    customer_id: customer_id
-                };
+                let vm = this;
+
+                // Find the customer to check if it's admin
+                const customer = this.customer_list.find(c => c.id === customer_id);
+                if (customer && customer.is_admin) {
+                    Swal.fire({
+                        title: "Cannot Delete!",
+                        text: "Admin users cannot be deleted",
+                        icon: "warning"
+                    });
+                    return;
+                }
 
                 Swal.fire({
                     title: "Are you sure?",
@@ -220,24 +289,60 @@
                     confirmButtonText: "Yes, delete it!"
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        axios.post('/admin/customer/delete', input)
-                            .then(function (response) {
-                                vm.fetchCustomers() // Refresh the list
-                                Swal.fire({
-                                    title: "Deleted!",
-                                    text: "Customer has been deleted.",
-                                    icon: "success",
-                                    draggable: true
+                        $.LoadingOverlay("show");
+                        axios.post('/admin/customer/delete', {customer_id: customer_id})
+                                .then(function (response) {
+                                    vm.fetchCustomers();
+                                    $.LoadingOverlay("hide");
+                                    Swal.fire({
+                                        title: "Deleted!",
+                                        text: "Customer has been deleted.",
+                                        icon: "success",
+                                        timer: 2000
+                                    });
+                                })
+                                .catch(function (error) {
+                                    console.error('Error:', error);
+                                    $.LoadingOverlay("hide");
+                                    Swal.fire({
+                                        title: "Error!",
+                                        text: error.response?.data?.message || "Failed to delete customer",
+                                        icon: "error"
+                                    });
                                 });
-                            })
-                            .catch(function (error) {
-                                alert('Error: ' + error)
-                                console.log(error);
-                            });
                     }
                 });
             },
+
+            getGenderBadgeClass(gender) {
+                switch (gender) {
+                    case 'male':
+                        return 'badge-info';
+                    case 'female':
+                        return 'badge-warning';
+                    case 'other':
+                        return 'badge-secondary';
+                    default:
+                        return 'badge-light';
+                }
+            }
         }
-    }).mount('#app')
+    }).mount('#app');
 </script>
+
+<style>
+    .badge {
+        font-size: 0.8em;
+        padding: 0.4em 0.6em;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .table th {
+        border-top: none;
+    }
+</style>
 {% endblock %}
