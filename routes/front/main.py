@@ -51,7 +51,7 @@ def fetch_products_from_database():
                 "price": float(product.price),
                 "category": str(product.category_id),
                 "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
-                "stock": product.stock,
+                "stock": product.stock if product.stock is not None else 0,  # Ensure stock is never None
                 "source": "database"
             }
             product_list.append(product_data)
@@ -59,7 +59,6 @@ def fetch_products_from_database():
     except Exception as e:
         print("Error fetching from database:", e)
         return []
-
 
 def fetch_products_from_api():
     """Fetch products from external API (FakeStore API)"""
