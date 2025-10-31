@@ -182,48 +182,6 @@
             return icons[type] || 'ℹ️';
         }
 
-        // Demo account auto-fill (for testing)
-        function setupDemoAccounts() {
-            const demoAccounts = {
-                'admin': {email: 'admin@damm.com', password: 'admin123'},
-                'user': {email: 'user@example.com', password: 'password123'}
-            };
-
-            // Add demo account buttons for easy testing
-            const demoContainer = document.querySelector('.bg-light');
-            if (demoContainer) {
-                const demoButtons = document.createElement('div');
-                demoButtons.className = 'mt-2';
-                demoButtons.innerHTML = `
-                <div class="btn-group btn-group-sm w-100">
-                    <button type="button" class="btn btn-outline-success demo-btn" data-account="admin">
-                        Fill Admin
-                    </button>
-                    <button type="button" class="btn btn-outline-info demo-btn" data-account="user">
-                        Fill User
-                    </button>
-                </div>
-            `;
-                demoContainer.appendChild(demoButtons);
-
-                // Add click handlers for demo buttons
-                document.querySelectorAll('.demo-btn').forEach(btn => {
-                    btn.addEventListener('click', function () {
-                        const accountType = this.getAttribute('data-account');
-                        const account = demoAccounts[accountType];
-                        if (account) {
-                            emailInput.value = account.email;
-                            passwordInput.value = account.password;
-                            validateField(emailInput);
-                            validateField(passwordInput);
-                            showAlert(`Demo ${accountType} account filled!`, 'success');
-                        }
-                    });
-                });
-            }
-        }
-
-        setupDemoAccounts();
         console.log('✅ Login form initialized');
     });
 </script>
@@ -257,10 +215,6 @@
     .form-text {
         font-size: 0.875rem;
         color: #6c757d;
-    }
-
-    .demo-btn {
-        font-size: 0.75rem;
     }
 
     .bg-light {
