@@ -10,6 +10,8 @@ from product import products as API_PRODUCTS
 import os
 import threading
 from threading import Thread
+from werkzeug.utils import secure_filename
+
 
 # Define Users model that maps to customer table
 class Users(db.Model):
@@ -23,11 +25,13 @@ class Users(db.Model):
     gender = db.Column(db.String(128), default='male')
     profile = db.Column(db.String(128), nullable=True)
 
+
 # Helper function to get current user
 def get_user():
     if 'user_id' in session:
         return Users.query.get(session['user_id'])
     return None
+
 
 # Login required decorator
 def login_required(f):
@@ -38,10 +42,13 @@ def login_required(f):
             flash('Please login to access this page.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
+
     return decorated_function
+
 
 def get_user_by_id(user_id):
     return Users.query.get(user_id)
+
 
 def fetch_products_from_database():
     """Fetch products from local database"""
@@ -64,6 +71,7 @@ def fetch_products_from_database():
         print("Error fetching from database:", e)
         return []
 
+
 def fetch_products_from_api():
     """Fetch products from LOCAL API data (no HTTP calls)"""
     try:
@@ -85,6 +93,7 @@ def fetch_products_from_api():
         print("Error fetching from local API data:", e)
         return []
 
+
 # Background email function
 def send_email_async(app, msg):
     """Send email in background thread"""
@@ -95,6 +104,7 @@ def send_email_async(app, msg):
         except Exception as e:
             print(f"⚠️ Background email failed: {e}")
 
+
 # Background Telegram function
 def send_telegram_async(message):
     """Send Telegram in background thread"""
@@ -103,6 +113,7 @@ def send_telegram_async(message):
         print("✅ Telegram sent successfully in background")
     except Exception as e:
         print(f"⚠️ Background Telegram failed: {e}")
+
 
 @app.route("/")
 def index():
@@ -131,15 +142,18 @@ def index():
         user = get_user()
         return render_template("index.html", products=product_list, user=user)
 
+
 @app.route("/contact")
 def contact():
     user = get_user()
     return render_template("contact.html", user=user)
 
+
 @app.route("/about")
 def about():
     user = get_user()
     return render_template("about.html", user=user)
+
 
 @app.route("/cart")
 @login_required
@@ -147,11 +161,13 @@ def cart():
     user = get_user_by_id(session['user_id'])
     return render_template("cart.html", user=user)
 
+
 @app.route("/checkout")
 @login_required
 def checkOut():
     user = get_user_by_id(session['user_id'])
     return render_template("checkout.html", user=user)
+
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -175,6 +191,7 @@ def login():
             flash('Invalid email or password', 'danger')
 
     return render_template('login.html')
+
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
@@ -229,6 +246,7 @@ def register():
 
     return render_template('register.html')
 
+
 @app.route("/logout")
 def logout():
     session.pop('user_id', None)
@@ -236,11 +254,13 @@ def logout():
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('index'))
 
+
 @app.route("/profile")
 @login_required
 def profile():
     user = get_user_by_id(session['user_id'])
     return render_template('profile.html', user=user)
+
 
 # Email Config
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -251,6 +271,7 @@ app.config['MAIL_PASSWORD'] = 'bjbu yxgl hixz wriu'
 app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
 
 mail = Mail(app)
+
 
 def send_order_to_telegram(message):
     token = "7938087424:AAESzgCJ5UjfYpQlRu15Xayy7OTuVUaFYmE"
@@ -268,6 +289,7 @@ def send_order_to_telegram(message):
     except Exception as e:
         print("Telegram send error:", e)
         return False
+
 
 @app.route("/placeOrder", methods=['POST'])
 @login_required
@@ -351,8 +373,7 @@ def placeOrder():
         try:
             print("✅ Preparing email in background...")
             msg = Message(
-                subject=f"Your Order Invoice #{
-    order.id} - DAMM SHOP",
+                subject=f"Your Order Invoice #{order.id} - DAMM SHOP",
                 sender=app.config['MAIL_USERNAME'],
                 recipients=[data['email']]
             )
@@ -423,6 +444,7 @@ def placeOrder():
         print(f"❌ CRITICAL ERROR in placeOrder: {str(e)}")
         return jsonify({"error": "Order processing failed"}), 500
 
+
 @app.route("/product")
 def product_detail():
     try:
@@ -481,6 +503,7 @@ def product_detail():
         print(f"❌ Error in product_detail: {e}")
         return render_template("detail.html", product=None, user=get_user())
 
+
 # API endpoint to get products (optional - for frontend API calls)
 @app.route("/api/products")
 def api_products():
@@ -492,15 +515,182 @@ def api_products():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Debug routes
+
+# ==================== ADMIN ROUTES ====================
+
+@app.route("/admin/product/list")
+def admin_product_list():
+    try:
+        # Get products from both database and API
+        db_products = fetch_products_from_database()
+        api_products = fetch_products_from_api()
+        all_products = db_products + api_products
+
+        # Add cost field if missing (calculate as 60% of price)
+        for product in all_products:
+            if 'cost' not in product:
+                product['cost'] = round(float(product['price']) * 0.6, 2)
+
+        print(f"📦 Admin: Sending {len(all_products)} products")
+        return jsonify(all_products)
+    except Exception as e:
+        print(f"❌ Error in admin_product_list: {e}")
+        return jsonify([])
+
+
+@app.route("/admin/category/list")
+def admin_category_list():
+    try:
+        # Define categories
+        categories = [
+            {"id": 1, "name": "men's clothing"},
+            {"id": 2, "name": "women's clothing"},
+            {"id": 3, "name": "jewelery"},
+            {"id": 4, "name": "electronics"},
+            {"id": 5, "name": "sports"}
+        ]
+        return jsonify(categories)
+    except Exception as e:
+        print(f"❌ Error in admin_category_list: {e}")
+        return jsonify([])
+
+
+@app.route("/admin/product/create", methods=['POST'])
+def admin_product_create():
+    try:
+        # Get form data
+        title = request.form.get('title')
+        price = request.form.get('price')
+        stock = request.form.get('stock')
+        category = request.form.get('category')
+
+        # Validate required fields
+        if not title or not price:
+            return jsonify({"success": False, "error": "Title and price are required"}), 400
+
+        # Handle image upload
+        image_file = request.files.get('image')
+        image_filename = None
+
+        if image_file and image_file.filename:
+            # Create uploads directory if it doesn't exist
+            upload_dir = os.path.join(app.root_path, 'static', 'image', 'product')
+            os.makedirs(upload_dir, exist_ok=True)
+
+            # Generate secure filename
+            image_filename = secure_filename(image_file.filename)
+            image_path = os.path.join(upload_dir, image_filename)
+            image_file.save(image_path)
+            print(f"✅ Image saved: {image_filename}")
+
+        # Create new product in database
+        new_product = Product(
+            name=title,
+            price=float(price),
+            stock=int(stock) if stock else 0,
+            category_id=int(category) if category else 1,
+            image=image_filename
+        )
+
+        db.session.add(new_product)
+        db.session.commit()
+
+        print(f"✅ Product created: {title}")
+        return jsonify({"success": True, "message": "Product created successfully"})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error creating product: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/admin/product/update", methods=['POST'])
+def admin_product_update():
+    try:
+        product_id = request.form.get('id')
+        title = request.form.get('title')
+        price = request.form.get('price')
+        stock = request.form.get('stock')
+        category = request.form.get('category')
+
+        if not product_id:
+            return jsonify({"success": False, "error": "Product ID is required"}), 400
+
+        # Find the product
+        product = Product.query.get(int(product_id))
+        if not product:
+            return jsonify({"success": False, "error": "Product not found"}), 404
+
+        # Update product fields
+        product.name = title
+        product.price = float(price)
+        product.stock = int(stock) if stock else product.stock
+        product.category_id = int(category) if category else product.category_id
+
+        # Handle image update
+        image_file = request.files.get('image')
+        if image_file and image_file.filename:
+            upload_dir = os.path.join(app.root_path, 'static', 'image', 'product')
+            os.makedirs(upload_dir, exist_ok=True)
+
+            image_filename = secure_filename(image_file.filename)
+            image_path = os.path.join(upload_dir, image_filename)
+            image_file.save(image_path)
+            product.image = image_filename
+            print(f"✅ Image updated: {image_filename}")
+
+        db.session.commit()
+
+        print(f"✅ Product updated: {title}")
+        return jsonify({"success": True, "message": "Product updated successfully"})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error updating product: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/admin/product/delete", methods=['POST'])
+def admin_product_delete():
+    try:
+        data = request.get_json()
+        product_id = data.get('product_id')
+
+        if not product_id:
+            return jsonify({"success": False, "error": "Product ID is required"}), 400
+
+        # Check if it's a database product (ID < 1000) or API product
+        if int(product_id) < 1000:
+            product = Product.query.get(int(product_id))
+            if product:
+                db.session.delete(product)
+                db.session.commit()
+                print(f"✅ Product deleted: ID {product_id}")
+                return jsonify({"success": True, "message": "Product deleted successfully"})
+            else:
+                return jsonify({"success": False, "error": "Product not found"}), 404
+        else:
+            # API products cannot be deleted (they're read-only)
+            return jsonify({"success": False, "error": "Cannot delete API products"}), 400
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error deleting product: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==================== DEBUG ROUTES ====================
+
 @app.route("/debug-test")
 def debug_test():
     return jsonify({"status": "debug route works"})
+
 
 @app.route("/debug-products")
 def debug_products():
     products = fetch_products_from_database() + fetch_products_from_api()
     return jsonify([{"id": p["id"], "title": p["title"]} for p in products])
+
 
 @app.route("/debug-order-simple", methods=['POST'])
 def debug_order_simple():
@@ -513,16 +703,20 @@ def debug_order_simple():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/debug-db")
 def debug_db():
     try:
         order_count = Order.query.count()
+        product_count = Product.query.count()
         return jsonify({
             "database": "connected",
-            "orders_count": order_count
+            "orders_count": order_count,
+            "products_count": product_count
         })
     except Exception as e:
         return jsonify({"database_error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
