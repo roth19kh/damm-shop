@@ -7,11 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models.order import Order, OrderItem
 from models.product import Product
 from product import products as API_PRODUCTS
-
-# Import your Product model
-from models.product import Product
-# Import your local API products
-from product import products as API_PRODUCTS
+import os
 
 
 # Define Users model that maps to customer table
@@ -25,6 +21,13 @@ class Users(db.Model):
     password = db.Column(db.String(128))
     gender = db.Column(db.String(128), default='male')
     profile = db.Column(db.String(128), nullable=True)
+
+
+# Helper function to get current user
+def get_user():
+    if 'user_id' in session:
+        return Users.query.get(session['user_id'])
+    return None
 
 
 # Login required decorator
@@ -72,13 +75,13 @@ def fetch_products_from_api():
         product_list = []
         for product in API_PRODUCTS:
             product_data = {
-                "id": product['id'] + 1000,  # Offset to avoid ID conflicts with database
+                "id": product['id'] + 1000,
                 "title": product['title'],
                 "price": float(product['price']),
                 "category": product['category'],
                 "image": product['image'],
-                "description": product.get('description', ''),
-                "stock": 50,  # Default stock for API products
+                "description": product.get('description', 'No description available'),
+                "stock": 50,
                 "source": "api"
             }
             product_list.append(product_data)
@@ -100,10 +103,7 @@ def index():
 
         print(f"Loaded {len(product_list)} products total (Database: {len(db_products)}, API: {len(api_products)})")
 
-        user = None
-        if 'user_id' in session:
-            user = get_user_by_id(session['user_id'])
-
+        user = get_user()
         return render_template("index.html", products=product_list, user=user)
 
     except Exception as e:
@@ -115,26 +115,19 @@ def index():
             print("Static products also failed:", static_error)
             product_list = []
 
-        user = None
-        if 'user_id' in session:
-            user = get_user_by_id(session['user_id'])
-
+        user = get_user()
         return render_template("index.html", products=product_list, user=user)
 
 
 @app.route("/contact")
 def contact():
-    user = None
-    if 'user_id' in session:
-        user = get_user_by_id(session['user_id'])
+    user = get_user()
     return render_template("contact.html", user=user)
 
 
 @app.route("/about")
 def about():
-    user = None
-    if 'user_id' in session:
-        user = get_user_by_id(session['user_id'])
+    user = get_user()
     return render_template("about.html", user=user)
 
 
@@ -268,25 +261,19 @@ def send_order_to_telegram(message):
     try:
         res = requests.post(url, data=payload)
         res.raise_for_status()
-        return
+        return True
     except Exception as e:
         print("Telegram send error:", e)
+        return False
 
 
-from models.order import Order, OrderItem
-
-
-@app.route("/placeOrder", methods=['GET', 'POST'])  # Add GET method temporarily
+@app.route("/placeOrder", methods=['POST'])
 @login_required
 def placeOrder():
-    if request.method == 'GET':
-        return jsonify({"message": "PlaceOrder endpoint is working!", "method": "GET"})
-
-    # Your existing POST handling code below...
     try:
         print("=== PLACE ORDER STARTED ===")
         data = request.get_json()
-        print(f"✅ Received data: {data}")
+        print(f"✅ Received data")
 
         if not data:
             print("❌ No data received")
@@ -310,7 +297,7 @@ def placeOrder():
 
         try:
             print("✅ Creating order record...")
-            # Create order record - match your Order model structure
+            # Create order record
             order = Order(
                 customer_id=session['user_id'],
                 customer_name=data['name'],
@@ -323,16 +310,16 @@ def placeOrder():
                 shipping_fee=float(data.get('shipping_fee', 0)),
                 total_amount=float(data['total']),
                 status='pending',
-                order_date=datetime.now(),  # Use datetime.now() instead of datetime.utcnow()
+                order_date=datetime.now(),
                 updated_at=datetime.now()
             )
             print(f"✅ Order object created")
 
             db.session.add(order)
-            db.session.flush()  # Get the order ID without committing
+            db.session.flush()
             print(f"✅ Order flushed with ID: {order.id}")
 
-            # Create order items - match your OrderItem model structure
+            # Create order items
             for item in cart_items:
                 order_item = OrderItem(
                     order_id=order.id,
@@ -354,145 +341,157 @@ def placeOrder():
             db.session.rollback()
             raise db_error
 
-        # Email sending (optional - comment out if causing issues)
-        try:
-            print("✅ Attempting to send email...")
-            msg = Message(
-                subject="Your Order Invoice",
-                sender=app.config['MAIL_USERNAME'],
-                recipients=[data['email']]
-            )
-            msg.html = render_template(
-                "invoice_email.html",
-                name=data['name'],
-                phone=data.get('phone'),
-                address=data['address'],
-                city=data['city'],
-                country=data['country'],
-                payment=data['payment'],
-                shipping_fee=data.get('shipping_fee', 0),
-                total=data['total'],
-                cart=cart_items,
-                date=datetime.now().strftime("%d-%m-%Y %H:%M")
-            )
-            mail.send(msg)
-            print("✅ Email sent successfully")
-        except Exception as e:
-            print(f"⚠️ Email sending failed (non-critical): {e}")
+        # Conditional Email and Telegram - Only send if not on Render free tier
+        email_sent = False
+        telegram_sent = False
 
-        # Send Message To Telegram (optional - comment out if causing issues)
-        try:
-            print("✅ Attempting to send Telegram message...")
-            message = f"""
-            🛒 <b>New Order Received!</b>
+        # Check if we're on Render free tier
+        is_render_free_tier = os.environ.get('RENDER') == 'true'
 
-            👤 <b>Customer:</b> {data['name']}
-            📧 <b>Email:</b> {data['email']}
-            📞 <b>Phone:</b> {data.get('phone')}
-            🏠 <b>Address:</b> {data['address']} {data['city']} {data['country']}
+        if not is_render_free_tier:
+            # Try to send email (skip if fails)
+            try:
+                print("✅ Attempting to send email...")
+                msg = Message(
+                    subject="Your Order Invoice",
+                    sender=app.config['MAIL_USERNAME'],
+                    recipients=[data['email']]
+                )
+                msg.html = render_template(
+                    "invoice_email.html",
+                    name=data['name'],
+                    phone=data.get('phone'),
+                    address=data['address'],
+                    city=data['city'],
+                    country=data['country'],
+                    payment=data['payment'],
+                    shipping_fee=data.get('shipping_fee', 0),
+                    total=data['total'],
+                    cart=cart_items,
+                    date=datetime.now().strftime("%d-%m-%Y %H:%M")
+                )
+                mail.send(msg)
+                email_sent = True
+                print("✅ Email sent successfully")
+            except Exception as e:
+                print(f"⚠️ Email sending failed: {e}")
+                email_sent = False
 
-            🛍️ <b>Items:</b>
-            """
-            for item in cart_items:
-                message += f"• {item['title']}\n"
-                message += f"  Quantity: {item['qty']}\n"
-                message += f"  Price: ${item['price']:.2f}\n\n"
+            # Try to send Telegram (skip if fails)
+            try:
+                print("✅ Attempting to send Telegram message...")
+                message = f"""
+                🛒 <b>New Order Received!</b>
 
-            message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
-            message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
-            message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+                👤 <b>Customer:</b> {data['name']}
+                📧 <b>Email:</b> {data['email']}
+                📞 <b>Phone:</b> {data.get('phone')}
+                🏠 <b>Address:</b> {data['address']} {data['city']} {data['country']}
 
-            send_order_to_telegram(message)
-            print("✅ Telegram message sent")
-        except Exception as e:
-            print(f"⚠️ Telegram sending failed (non-critical): {e}")
+                🛍️ <b>Items:</b>
+                """
+                for item in cart_items:
+                    message += f"• {item['title']}\n"
+                    message += f"  Quantity: {item['qty']}\n"
+                    message += f"  Price: ${item['price']:.2f}\n\n"
+
+                message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
+                message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
+                message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+
+                telegram_sent = send_order_to_telegram(message)
+                if telegram_sent:
+                    print("✅ Telegram message sent")
+                else:
+                    print("⚠️ Telegram message failed")
+            except Exception as e:
+                print(f"⚠️ Telegram sending failed: {e}")
+                telegram_sent = False
+        else:
+            print("ℹ️ Skipping email and Telegram on Render free tier")
+
+        # Build success message based on what was sent
+        success_message = "Order placed successfully! Your order has been recorded."
+        if email_sent:
+            success_message += " Invoice sent to your email."
+        if telegram_sent:
+            success_message += " Notification sent to admin."
+        if is_render_free_tier:
+            success_message += " (Email/Telegram disabled on free tier)"
 
         print("✅ Order processing completed successfully")
         return jsonify({
-            "message": "Order placed successfully! Invoice sent to your email.",
-            "order_id": order.id
+            "success": True,
+            "message": success_message,
+            "order_id": order.id,
+            "email_sent": email_sent,
+            "telegram_sent": telegram_sent,
+            "is_free_tier": is_render_free_tier
         }), 200
 
     except Exception as e:
         db.session.rollback()
         print(f"❌ CRITICAL ERROR in placeOrder: {str(e)}")
-        print(f"❌ ERROR type: {type(e).__name__}")
-        import traceback
-        print(f"❌ ERROR traceback: {traceback.format_exc()}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"error": "Order processing failed"}), 500
 
 
 @app.route("/product")
 def product_detail():
     try:
         pro_id = request.args.get('pro_id', type=int)
+        print(f"🔍 Looking for product ID: {pro_id}")
 
-        if pro_id:
-            # Check if it's a database product (ID < 1000) or API product (ID >= 1000)
-            if pro_id < 1000:
-                # Database product
-                product = Product.query.get(pro_id)
-                if product:
-                    product_data = {
-                        "id": product.id,
-                        "title": product.name,
-                        "price": float(product.price),
-                        "description": f"Stock: {product.stock}",
-                        "category": str(product.category_id),
-                        "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
-                        "stock": product.stock,
-                        "source": "database"
-                    }
-                else:
-                    product_data = None
-            else:
-                # API product - get from LOCAL data
-                api_id = pro_id - 1000  # Convert back to original API ID
-                try:
-                    # Find product in local API data
-                    api_product = None
-                    for product in API_PRODUCTS:
-                        if product['id'] == api_id:
-                            api_product = product
-                            break
+        if not pro_id:
+            print("❌ No product ID provided")
+            return render_template("detail.html", product=None, user=get_user())
 
-                    if api_product:
-                        product_data = {
-                            "id": pro_id,
-                            "title": api_product['title'],
-                            "price": float(api_product['price']),
-                            "description": api_product['description'],
-                            "category": api_product['category'],
-                            "image": api_product['image'],
-                            "stock": 50,
-                            "source": "api"
-                        }
-                    else:
-                        product_data = None
-                except:
-                    product_data = None
-        else:
-            product_data = None
-
-    except Exception as e:
-        print("Error fetching product detail:", e)
         product_data = None
 
-    if not product_data:
-        # Fallback to static product data
-        try:
-            from product import get_product_by_id
-            pro_id = request.args.get('pro_id', type=int)
-            if pro_id and pro_id >= 1000:
-                product_data = get_product_by_id(pro_id - 1000)
-        except:
-            product_data = None
+        # Database products (ID < 1000)
+        if pro_id < 1000:
+            print(f"🔍 Searching database for ID: {pro_id}")
+            product = Product.query.get(pro_id)
+            if product:
+                product_data = {
+                    "id": product.id,
+                    "title": product.name,
+                    "price": float(product.price),
+                    "description": f"Stock: {product.stock}",
+                    "category": str(product.category_id),
+                    "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
+                    "stock": product.stock,
+                    "source": "database"
+                }
+                print(f"✅ Found database product: {product_data['title']}")
+            else:
+                print(f"❌ Database product not found for ID: {pro_id}")
+        else:
+            # API products (ID >= 1000)
+            api_id = pro_id - 1000
+            print(f"🔍 Searching API products for ID: {api_id}")
+            for product in API_PRODUCTS:
+                if product['id'] == api_id:
+                    product_data = {
+                        "id": pro_id,
+                        "title": product['title'],
+                        "price": float(product['price']),
+                        "description": product.get('description', 'No description available'),
+                        "category": product['category'],
+                        "image": product['image'],
+                        "stock": 50,
+                        "source": "api"
+                    }
+                    print(f"✅ Found API product: {product_data['title']}")
+                    break
+            if not product_data:
+                print(f"❌ API product not found for ID: {api_id}")
 
-    user = None
-    if 'user_id' in session:
-        user = get_user_by_id(session['user_id'])
+        user = get_user()
+        return render_template("detail.html", product=product_data, user=user)
 
-    return render_template("detail.html", product=product_data, user=user)
+    except Exception as e:
+        print(f"❌ Error in product_detail: {e}")
+        return render_template("detail.html", product=None, user=get_user())
 
 
 # API endpoint to get products (optional - for frontend API calls)
@@ -507,37 +506,41 @@ def api_products():
         return jsonify({"error": str(e)}), 500
 
 
+# Debug routes
+@app.route("/debug-test")
+def debug_test():
+    return jsonify({"status": "debug route works"})
 
 
-    @app.route("/debug-test")
-    def debug_test():
-        return jsonify({"status": "debug route works"})
+@app.route("/debug-products")
+def debug_products():
+    products = fetch_products_from_database() + fetch_products_from_api()
+    return jsonify([{"id": p["id"], "title": p["title"]} for p in products])
 
 
-    @app.route("/debug-order-simple", methods=['POST'])
-    def debug_order_simple():
-        try:
-            data = request.get_json()
-            return jsonify({
-                "status": "success",
-                "received": list(data.keys()) if data else "no data"
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+@app.route("/debug-order-simple", methods=['POST'])
+def debug_order_simple():
+    try:
+        data = request.get_json()
+        return jsonify({
+            "status": "success",
+            "received": list(data.keys()) if data else "no data"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-    @app.route("/debug-db")
-    def debug_db():
-        try:
-            # Test database connection
-            from models.order import Order
-            order_count = Order.query.count()
-            return jsonify({
-                "database": "connected",
-                "orders_count": order_count
-            })
-        except Exception as e:
-            return jsonify({"database_error": str(e)}), 500
+@app.route("/debug-db")
+def debug_db():
+    try:
+        order_count = Order.query.count()
+        return jsonify({
+            "database": "connected",
+            "orders_count": order_count
+        })
+    except Exception as e:
+        return jsonify({"database_error": str(e)}), 500
 
-        if __name__ == "__main__":
-            app.run(debug=True)
+
+if __name__ == "__main__":
+    app.run(debug=True)

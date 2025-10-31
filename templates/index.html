@@ -51,9 +51,10 @@
     <!-- Product Info -->
 <div class="card-body p-3 d-flex flex-column">
     <!-- Product title with link to detail page -->
-    <a href="/product?pro_id={{ product.id }}" class="text-decoration-none text-dark">
-        <h6 class="card-title text-truncate mb-1">{{ product.title }}</h6>
+    <a href="{{ url_for('product_detail') }}?pro_id={{ product.id }}" class="btn btn-primary">
+        View Details
     </a>
+
     <p class="text-muted small mb-2">{{ product.category }}</p>
 <p class="fw-bold text-success mb-2">${{ "%.2f"|format(product.price) }}</p>
     {% if product.stock is defined %}
