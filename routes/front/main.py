@@ -5,7 +5,8 @@ from datetime import datetime
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.order import Order, OrderItem
-from datetime import datetime
+from models.product import Product
+from product import products as API_PRODUCTS
 
 # Import your Product model
 from models.product import Product
@@ -275,9 +276,13 @@ def send_order_to_telegram(message):
 from models.order import Order, OrderItem
 
 
-@app.route("/placeOrder", methods=['POST'])
+@app.route("/placeOrder", methods=['GET', 'POST'])  # Add GET method temporarily
 @login_required
 def placeOrder():
+    if request.method == 'GET':
+        return jsonify({"message": "PlaceOrder endpoint is working!", "method": "GET"})
+
+    # Your existing POST handling code below...
     try:
         print("=== PLACE ORDER STARTED ===")
         data = request.get_json()
@@ -502,10 +507,6 @@ def api_products():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
-
-
 
 
     @app.route("/debug-test")
@@ -537,3 +538,6 @@ if __name__ == "__main__":
             })
         except Exception as e:
             return jsonify({"database_error": str(e)}), 500
+
+        if __name__ == "__main__":
+            app.run(debug=True)
