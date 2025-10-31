@@ -5,6 +5,9 @@ from models.users import Users
 from models.product import Product
 from functools import wraps
 
+
+
+
 import requests
 from datetime import datetime
 from flask_mail import Mail, Message
@@ -118,7 +121,8 @@ def product_delete():
 
 
 def get_product_list():
-    return [
+    # 1. Get products from DATABASE
+    database_products = [
         {
             "id": product.id,
             "title": product.name,
@@ -127,7 +131,29 @@ def get_product_list():
             "description": "",
             "category": product.category_id,
             "image": f"/static/image/product/{product.image}" if product.image else None,
-            "stock": product.stock
+            "stock": product.stock,
+            "source": "database"  # Mark as from database
         }
         for product in Product.query.all()
     ]
+
+    # 2. Get products from API
+    api_products = [
+        {
+            "id": product['id'] + 1000,  # Add 1000 to avoid ID conflicts with database
+            "title": product['title'],
+            "price": product['price'],
+            "cost": product['price'] * 0.7,  # Calculate cost
+            "description": product['description'],
+            "category": product['category'],
+            "image": product['image'],
+            "stock": 50,  # Default stock
+            "source": "api"  # Mark as from API
+        }
+        for product in requests.get("https://fakestoreapi.com/products").json()
+    ]
+
+    # 3. COMBINE both lists
+    all_products = database_products + api_products
+
+    return all_products
