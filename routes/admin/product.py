@@ -6,8 +6,6 @@ from models.product import Product
 from functools import wraps
 
 
-
-
 import requests
 from datetime import datetime
 from flask_mail import Mail, Message

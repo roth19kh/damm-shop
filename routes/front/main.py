@@ -6,7 +6,7 @@ from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.order import Order, OrderItem
 from models.product import Product
-from models.category import Category  # Import Category model
+from product import products as API_PRODUCTS
 import os
 import threading
 from threading import Thread
@@ -69,25 +69,6 @@ def fetch_products_from_database():
         return product_list
     except Exception as e:
         print("Error fetching from database:", e)
-        return []
-
-
-def fetch_categories_from_database():
-    """Fetch categories from local database"""
-    try:
-        db_categories = Category.query.all()
-        category_list = []
-        for category in db_categories:
-            category_data = {
-                "id": category.id,
-                "name": category.name,
-                "description": category.description,
-                "image": f"/static/image/category/{category.image}" if category.image else "/static/image/No_Image_Available.jpg"
-            }
-            category_list.append(category_data)
-        return category_list
-    except Exception as e:
-        print("Error fetching categories from database:", e)
         return []
 
 
@@ -582,9 +563,14 @@ def admin_product_list():
 @app.route("/admin/category/list")
 def admin_category_list():
     try:
-        # Get categories ONLY from database
-        categories = fetch_categories_from_database()
-        print(f"📦 Admin: Sending {len(categories)} categories from database")
+        # Define categories
+        categories = [
+            {"id": 1, "name": "men's clothing"},
+            {"id": 2, "name": "women's clothing"},
+            {"id": 3, "name": "jewelery"},
+            {"id": 4, "name": "electronics"},
+            {"id": 5, "name": "sports"}
+        ]
         return jsonify(categories)
     except Exception as e:
         print(f"❌ Error in admin_category_list: {e}")
@@ -728,12 +714,6 @@ def debug_products():
     return jsonify([{"id": p["id"], "title": p["title"]} for p in products])
 
 
-@app.route("/debug-categories")
-def debug_categories():
-    categories = fetch_categories_from_database()
-    return jsonify([{"id": c["id"], "name": c["name"]} for c in categories])
-
-
 @app.route("/debug-order-simple", methods=['POST'])
 def debug_order_simple():
     try:
@@ -751,12 +731,10 @@ def debug_db():
     try:
         order_count = Order.query.count()
         product_count = Product.query.count()
-        category_count = Category.query.count()
         return jsonify({
             "database": "connected",
             "orders_count": order_count,
-            "products_count": product_count,
-            "categories_count": category_count
+            "products_count": product_count
         })
     except Exception as e:
         return jsonify({"database_error": str(e)}), 500
