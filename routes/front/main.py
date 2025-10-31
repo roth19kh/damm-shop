@@ -276,10 +276,23 @@ from models.order import Order, OrderItem
 @app.route("/placeOrder", methods=['POST'])
 @login_required
 def placeOrder():
-    data = request.get_json()
-    cart_items = data.get("cart", [])
-
     try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"error": "No data received"}), 400
+
+        cart_items = data.get("cart", [])
+
+        if not cart_items:
+            return jsonify({"error": "Cart is empty"}), 400
+
+        # Validate required fields
+        required_fields = ['name', 'email', 'address', 'city', 'country', 'payment', 'total']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+
         # Create order record
         order = Order(
             customer_id=session['user_id'],
@@ -290,7 +303,7 @@ def placeOrder():
             city=data['city'],
             country=data['country'],
             payment_method=data['payment'],
-            shipping_fee=float(data['shipping_fee']),
+            shipping_fee=float(data.get('shipping_fee', 0)),
             total_amount=float(data['total']),
             status='pending'
         )
@@ -314,63 +327,66 @@ def placeOrder():
 
         print(f"✅ Order #{order.id} saved to database with {len(cart_items)} items")
 
+        # Email sending
+        try:
+            msg = Message(
+                subject="Your Order Invoice",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[data['email']]
+            )
+            msg.html = render_template(
+                "invoice_email.html",
+                name=data['name'],
+                phone=data.get('phone'),
+                address=data['address'],
+                city=data['city'],
+                country=data['country'],
+                payment=data['payment'],
+                shipping_fee=data.get('shipping_fee', 0),
+                total=data['total'],
+                cart=cart_items,
+                date=datetime.now().strftime("%d-%m-%Y %H:%M")
+            )
+            mail.send(msg)
+            print("✅ Email sent successfully")
+        except Exception as e:
+            print(f"❌ Error sending email: {e}")
+
+        # Send Message To Telegram
+        try:
+            message = f"""
+            🛒 <b>New Order Received!</b>
+
+            👤 <b>Customer:</b> {data['name']}
+            📧 <b>Email:</b> {data['email']}
+            📞 <b>Phone:</b> {data.get('phone')}
+            🏠 <b>Address:</b> {data['address']} {data['city']} {data['country']}
+
+            🛍️ <b>Items:</b>
+            """
+            for item in cart_items:
+                message += f"• {item['title']}\n"
+                message += f"  Quantity: {item['qty']}\n"
+                message += f"  Price: ${item['price']:.2f}\n\n"
+
+            message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
+            message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
+            message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+
+            send_order_to_telegram(message)
+            print("✅ Telegram message sent")
+        except Exception as e:
+            print(f"❌ Error sending telegram: {e}")
+
+        return jsonify({
+            "message": "Order placed successfully! Invoice sent to your email.",
+            "order_id": order.id
+        }), 200
+
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error saving order to database: {e}")
-        return jsonify({"error": "Failed to save order"}), 500
-
-    # Rest of your email and telegram code...
-    try:
-        msg = Message(
-            subject="Your Order Invoice",
-            sender=app.config['MAIL_USERNAME'],
-            recipients=[data['email']]
-        )
-        msg.html = render_template(
-            "invoice_email.html",
-            name=data['name'],
-            phone=data.get('phone'),
-            address=data['address'],
-            city=data['city'],
-            country=data['country'],
-            payment=data['payment'],
-            shipping_fee=data['shipping_fee'],
-            total=data['total'],
-            cart=cart_items,
-            date=datetime.now().strftime("%d-%m-%Y %H:%M")
-        )
-        mail.send(msg)
-        print("✅ Email sent successfully")
-    except Exception as e:
-        print(f"❌ Error sending email: {e}")
-
-    # Send Message To Telegram
-    try:
-        message = f"""
-        🛒 <b>New Order Received!</b>
-
-        👤 <b>Customer:</b> {data['name']}
-        📧 <b>Email:</b> {data['email']}
-        📞 <b>Phone:</b> {data.get('phone')}
-        🏠 <b>Address:</b> {data['address']} {data['city']} {data['country']}
-
-        🛍️ <b>Items:</b>
-        """
-        for item in cart_items:
-            message += f"• {item['title']}\n"
-            message += f"  Quantity: {item['qty']}\n"
-            message += f"  Price: ${item['price']:.2f}\n\n"
-
-        message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
-        message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
-        message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
-
-        send_order_to_telegram(message)
-        print("✅ Telegram message sent")
-    except Exception as e:
-        print(f"❌ Error sending telegram: {e}")
-
-    return "Order placed successfully! Invoice sent to your email."
+        print(f"❌ Error in placeOrder: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/product")

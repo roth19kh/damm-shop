@@ -6,59 +6,73 @@
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="card checkout-card p-4">
-                <form @submit.prevent="placeOrder">
+                <!-- Order Summary -->
+                <h5 class="mb-3">Order Summary</h5>
+                <div class="card mb-4">
+                    <div class="card-body" id="cartSummary">
+                        <!-- Cart items will be displayed here -->
+                    </div>
+                </div>
+
+                <form id="checkoutForm" method="POST">
                     <!-- Customer Info -->
                     <h5 class="mb-3">Customer Information</h5>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" class="form-control" placeholder="Your Full Name" name="name" required v-model="form.name">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" placeholder="Your Full Name" name="name" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" placeholder="you@example.com" name="email" required v-model="form.email">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" placeholder="you@example.com" name="email"
+                                   required>
                         </div>
                     </div>
 
                     <!-- Address -->
                     <div class="mb-3">
-                        <label class="form-label">Address</label>
-                        <input type="text" class="form-control" placeholder="123 Main Street" name="address" required v-model="form.address">
+                        <label class="form-label">Address *</label>
+                        <input type="text" class="form-control" placeholder="123 Main Street" name="address" required>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">City</label>
-                            <input type="text" class="form-control" placeholder="Phnom Penh" name="city" required v-model="form.city">
+                            <label class="form-label">City *</label>
+                            <input type="text" class="form-control" placeholder="Phnom Penh" name="city" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Country</label>
-                            <input type="text" class="form-control" placeholder="Cambodia" name="country" required v-model="form.country">
+                            <label class="form-label">Country *</label>
+                            <input type="text" class="form-control" placeholder="Cambodia" name="country" required>
                         </div>
-
                     </div>
 
                     <!-- Phone -->
                     <div class="mb-3">
-                        <label class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" placeholder="+855 12 345 678" name="phoneNumber" required v-model="form.phone">
+                        <label class="form-label">Phone Number *</label>
+                        <input type="tel" class="form-control" placeholder="+855 12 345 678" name="phone" required>
                     </div>
+
+                    <!-- Hidden fields for cart data -->
+                    <input type="hidden" name="cart_data" id="cartData">
+                    <input type="hidden" name="shipping_fee" value="0">
+                    <input type="hidden" name="total" id="totalAmount">
 
                     <!-- Payment -->
                     <h5 class="mb-3">Payment Method</h5>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="payment" id="creditCard" checked v-model="form.payment" value="Credit/Debit Card">
-                        <label class="form-check-label" for="creditCard" >
+                        <input class="form-check-input" type="radio" name="payment" id="creditCard"
+                               value="Credit/Debit Card" checked>
+                        <label class="form-check-label" for="creditCard">
                             Credit/Debit Card
                         </label>
                     </div>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="payment" id="paypal" v-model="form.payment" value="Paypal">
+                        <input class="form-check-input" type="radio" name="payment" id="paypal" value="Paypal">
                         <label class="form-check-label" for="paypal">
                             PayPal
                         </label>
                     </div>
                     <div class="form-check mb-4">
-                        <input class="form-check-input" type="radio" name="payment" id="cod" v-model="form.payment" value="Cash on Delivery">
+                        <input class="form-check-input" type="radio" name="payment" id="cod" value="Cash on Delivery">
                         <label class="form-check-label" for="cod">
                             Cash on Delivery
                         </label>
@@ -75,4 +89,121 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Load cart from localStorage
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const cartSummary = document.getElementById('cartSummary');
+        const cartDataInput = document.getElementById('cartData');
+        const totalAmountInput = document.getElementById('totalAmount');
+
+        if (cart.length === 0) {
+            cartSummary.innerHTML = '<p class="text-muted">Your cart is empty</p>';
+            document.getElementById('checkout-btn').disabled = true;
+            return;
+        }
+
+        // Display cart items
+        let total = 0;
+        let summaryHTML = '';
+
+        cart.forEach(item => {
+            const itemTotal = item.price * item.qty;
+            total += itemTotal;
+            summaryHTML += `
+            <div class="d-flex justify-content-between mb-2">
+                <span>${item.title} x ${item.qty}</span>
+                <span>$${itemTotal.toFixed(2)}</span>
+            </div>
+        `;
+        });
+
+        summaryHTML += `
+        <hr>
+        <div class="d-flex justify-content-between">
+            <strong>Total:</strong>
+            <strong>$${total.toFixed(2)}</strong>
+        </div>
+    `;
+
+        cartSummary.innerHTML = summaryHTML;
+
+        // Set hidden fields
+        cartDataInput.value = JSON.stringify(cart);
+        totalAmountInput.value = total.toFixed(2);
+
+        // Form submission
+        document.getElementById('checkoutForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('checkout-btn');
+            const originalText = submitBtn.innerHTML;
+
+            // Show loading state
+            submitBtn.innerHTML = '⏳ Placing Order...';
+            submitBtn.disabled = true;
+
+            try {
+                // Prepare form data
+                const formData = new FormData(this);
+                const formObject = {
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    address: formData.get('address'),
+                    city: formData.get('city'),
+                    country: formData.get('country'),
+                    phone: formData.get('phone'),
+                    payment: formData.get('payment'),
+                    shipping_fee: parseFloat(formData.get('shipping_fee')),
+                    total: parseFloat(formData.get('total')),
+                    cart: JSON.parse(formData.get('cart_data'))
+                };
+
+                console.log('Sending order data:', formObject);
+
+                const response = await fetch('/placeOrder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formObject)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(result.message);
+                    // Clear cart and redirect
+                    localStorage.removeItem('cart');
+                    window.location.href = '/';
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+                alert('Failed to place order. Please try again.');
+            } finally {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    });
+</script>
+
+<style>
+    .checkout-card {
+        border: none;
+        border-radius: 1rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+</style>
 {% endblock %}
