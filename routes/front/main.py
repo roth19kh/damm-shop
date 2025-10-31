@@ -277,21 +277,29 @@ from models.order import Order, OrderItem
 @login_required
 def placeOrder():
     try:
+        print("=== PLACE ORDER STARTED ===")
         data = request.get_json()
+        print(f"Received data: {data}")
 
         if not data:
+            print("❌ No data received")
             return jsonify({"error": "No data received"}), 400
 
         cart_items = data.get("cart", [])
+        print(f"Cart items: {cart_items}")
 
         if not cart_items:
+            print("❌ Cart is empty")
             return jsonify({"error": "Cart is empty"}), 400
 
         # Validate required fields
         required_fields = ['name', 'email', 'address', 'city', 'country', 'payment', 'total']
         for field in required_fields:
             if not data.get(field):
+                print(f"❌ Missing required field: {field}")
                 return jsonify({"error": f"Missing required field: {field}"}), 400
+
+        print("✅ All validations passed")
 
         # Create order record
         order = Order(
@@ -307,8 +315,11 @@ def placeOrder():
             total_amount=float(data['total']),
             status='pending'
         )
+        print(f"✅ Order object created: {order}")
+
         db.session.add(order)
         db.session.flush()  # Get the order ID without committing
+        print(f"✅ Order flushed with ID: {order.id}")
 
         # Create order items
         for item in cart_items:
@@ -321,10 +332,10 @@ def placeOrder():
                 subtotal=float(item['price']) * item['qty']
             )
             db.session.add(order_item)
+            print(f"✅ Added order item: {item['title']}")
 
         # Commit both order and order items
         db.session.commit()
-
         print(f"✅ Order #{order.id} saved to database with {len(cart_items)} items")
 
         # Email sending
@@ -385,9 +396,11 @@ def placeOrder():
 
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error in placeOrder: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-
+        print(f"❌ ERROR in placeOrder: {str(e)}")
+        print(f"❌ ERROR type: {type(e).__name__}")
+        import traceback
+        print(f"❌ ERROR traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @app.route("/product")
 def product_detail():

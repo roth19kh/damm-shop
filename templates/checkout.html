@@ -135,7 +135,7 @@
         cartDataInput.value = JSON.stringify(cart);
         totalAmountInput.value = total.toFixed(2);
 
-        // Form submission
+        // Form submission handler - ADD THIS PART
         document.getElementById('checkoutForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -172,15 +172,24 @@
                     body: JSON.stringify(formObject)
                 });
 
-                const result = await response.json();
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const result = await response.json();
 
-                if (response.ok) {
-                    alert(result.message);
-                    // Clear cart and redirect
-                    localStorage.removeItem('cart');
-                    window.location.href = '/';
+                    if (response.ok) {
+                        alert(result.message);
+                        // Clear cart and redirect
+                        localStorage.removeItem('cart');
+                        window.location.href = '/';
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
                 } else {
-                    alert('Error: ' + result.error);
+                    // Handle non-JSON response (HTML error page)
+                    const text = await response.text();
+                    console.error('Server returned HTML error:', text);
+                    alert('Server error occurred. Please check the console for details.');
                 }
             } catch (error) {
                 console.error('Error placing order:', error);
