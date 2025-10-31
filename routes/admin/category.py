@@ -1,13 +1,8 @@
-from app import app, db, request
-from flask import render_template, jsonify, redirect, url_for, session, flash
+from app import app, db
+from flask import render_template, jsonify, redirect, url_for, session, flash, request
 from models.category import Category
-from models.users import Users  # Import your Users model
+from models.users import Users
 from functools import wraps
-
-import requests
-from datetime import datetime
-from flask_mail import Mail, Message
-
 from werkzeug.utils import secure_filename
 import os
 
@@ -23,7 +18,7 @@ def admin_required(f):
 
         # Check if user is admin
         user = Users.query.get(session['user_id'])
-        if not user or not user.is_admin:
+        if not user or not getattr(user, 'is_admin', False):
             flash('Access denied. Admin privileges required.', 'danger')
             return redirect(url_for('index'))
 
@@ -33,170 +28,238 @@ def admin_required(f):
 
 
 # Category Routes
-@app.get("/admin/category")
+@app.route("/admin/category")
 @admin_required
 def category_index():
     return render_template("admin/category/index.html", module='category')
 
 
-@app.get("/admin/category/list")
+@app.route("/admin/category/list")
 @admin_required
 def category_list():
-    categories = get_category_list()
-    return jsonify(categories)
+    try:
+        categories = get_category_list()
+        return jsonify(categories)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/category/update")
+@app.route("/admin/category/update", methods=['POST'])
 @admin_required
 def category_update():
-    UPLOAD_DIR = os.path.join("static/image", "category")
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    try:
+        UPLOAD_DIR = os.path.join(app.root_path, "static", "image", "category")
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    form = request.form
-    file = request.files.get('image')
+        category_id = request.form.get('id')
+        category = Category.query.get(category_id)
 
-    category_id = form.get('id')
-    category = Category.query.get(category_id)
+        if not category:
+            return jsonify({"error": "Category not found"}), 404
 
-    if not category:
-        return "Category not found", 404
+        # Update fields
+        category.name = request.form.get('name')
+        category.description = request.form.get('description')
 
-    # Update fields
-    category.name = form.get('name')
-    category.description = form.get('description')
+        # Update image if new one is provided
+        file = request.files.get('image')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            file.save(file_path)
+            category.image = filename
 
-    # Update image if new one is provided
-    if file and file.filename:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(UPLOAD_DIR, filename))
-        category.image = filename
-
-    db.session.commit()
-    return "Updated category"
+        db.session.commit()
+        return jsonify({"message": "Category updated successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/category/create")
+@app.route("/admin/category/create", methods=['POST'])
 @admin_required
 def category_create():
-    UPLOAD_DIR = os.path.join("static/image", "category")
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    try:
+        UPLOAD_DIR = os.path.join(app.root_path, "static", "image", "category")
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    form = request.form
-    file = request.files.get('image')
+        file = request.files.get('image')
+        filename = None
 
-    filename = None
-    if file and file.filename:  # Check if file exists and has a filename
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(UPLOAD_DIR, filename))
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            file.save(file_path)
 
-    categories = Category(name=form.get('name'),
-                          image=filename,
-                          description=form.get('description'),
-                          )
-    db.session.add(categories)
-    db.session.commit()
-    return "Created category"
+        new_category = Category(
+            name=request.form.get('name'),
+            image=filename,
+            description=request.form.get('description'),
+        )
+
+        db.session.add(new_category)
+        db.session.commit()
+        return jsonify({"message": "Category created successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/category/delete")
+@app.route("/admin/category/delete", methods=['POST'])
 @admin_required
 def category_delete():
-    # Use get_json() since frontend sends JSON
-    category_id = request.get_json().get('category_id')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    categories = Category.query.get(category_id)
-    if categories:
-        db.session.delete(categories)
-        db.session.commit()
-        return "Deleted category"
-    return "Category not found", 404
+        category_id = data.get('category_id')
+        if not category_id:
+            return jsonify({"error": "Category ID is required"}), 400
+
+        category = Category.query.get(category_id)
+        if category:
+            db.session.delete(category)
+            db.session.commit()
+            return jsonify({"message": "Category deleted successfully"})
+        return jsonify({"error": "Category not found"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 def get_category_list():
-    return [
-        {
-            "id": category.id,
-            "name": category.name,
-            "image": category.image,
-            "description": category.description,
-        }
-        for category in Category.query.all()
-    ]
+    try:
+        categories = Category.query.all()
+        return [
+            {
+                "id": category.id,
+                "name": category.name,
+                "image": category.image,
+                "description": category.description,
+            }
+            for category in categories
+        ]
+    except Exception as e:
+        print(f"Error getting category list: {e}")
+        return []
 
 
 # Customer Routes
-@app.get("/admin/customer")
+@app.route("/admin/customer")
 @admin_required
 def customer_index():
     return render_template("admin/customer/index.html", module='customer')
 
 
-@app.get("/admin/customer/list")
+@app.route("/admin/customer/list")
 @admin_required
 def customer_list():
-    customers = get_customer_list()
-    return jsonify(customers)
+    try:
+        customers = get_customer_list()
+        return jsonify(customers)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/customer/update")
+@app.route("/admin/customer/update", methods=['POST'])
 @admin_required
 def customer_update():
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    customer_id = data.get('id')
-    customer = Users.query.get(customer_id)
+        customer_id = data.get('id')
+        customer = Users.query.get(customer_id)
 
-    if not customer:
-        return "Customer not found", 404
+        if not customer:
+            return jsonify({"error": "Customer not found"}), 404
 
-    # Update fields
-    customer.name = data.get('name')
-    customer.email = data.get('email')
-    customer.gender = data.get('gender')
-    customer.profile = data.get('profile')
+        # Update fields
+        customer.name = data.get('name')
+        customer.email = data.get('email')
+        customer.gender = data.get('gender')
+        customer.profile = data.get('profile')
 
-    db.session.commit()
-    return "Updated customer"
+        db.session.commit()
+        return jsonify({"message": "Customer updated successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/customer/create")
+@app.route("/admin/customer/create", methods=['POST'])
 @admin_required
 def customer_create():
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    customer = Users(
-        name=data.get('name'),
-        email=data.get('email'),
-        gender=data.get('gender'),
-        profile=data.get('profile'),
-        password="default_password"  # You might want to handle passwords differently
-    )
-    db.session.add(customer)
-    db.session.commit()
-    return "Created customer"
+        # Check if email already exists
+        existing_user = Users.query.filter_by(email=data.get('email')).first()
+        if existing_user:
+            return jsonify({"error": "Email already registered"}), 400
+
+        customer = Users(
+            name=data.get('name'),
+            email=data.get('email'),
+            gender=data.get('gender', 'male'),
+            profile=data.get('profile', data.get('name')),
+            password="default_password",  # You should hash this
+            is_admin=False  # Default to non-admin
+        )
+
+        db.session.add(customer)
+        db.session.commit()
+        return jsonify({"message": "Customer created successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
-@app.post("/admin/customer/delete")
+@app.route("/admin/customer/delete", methods=['POST'])
 @admin_required
 def customer_delete():
-    customer_id = request.get_json().get('customer_id')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    customer = Users.query.get(customer_id)
-    if customer:
-        db.session.delete(customer)
-        db.session.commit()
-        return "Deleted customer"
-    return "Customer not found", 404
+        customer_id = data.get('customer_id')
+        if not customer_id:
+            return jsonify({"error": "Customer ID is required"}), 400
+
+        customer = Users.query.get(customer_id)
+        if customer:
+            # Prevent deleting yourself
+            if customer.id == session['user_id']:
+                return jsonify({"error": "Cannot delete your own account"}), 400
+
+            db.session.delete(customer)
+            db.session.commit()
+            return jsonify({"message": "Customer deleted successfully"})
+        return jsonify({"error": "Customer not found"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 def get_customer_list():
-    return [
-        {
-            "id": customer.id,
-            "name": customer.name,
-            "email": customer.email,
-            "gender": customer.gender,
-            "profile": customer.profile,
-        }
-        for customer in Users.query.all()
-    ]
+    try:
+        customers = Users.query.all()
+        return [
+            {
+                "id": customer.id,
+                "name": customer.name,
+                "email": customer.email,
+                "gender": customer.gender,
+                "profile": customer.profile,
+                "is_admin": getattr(customer, 'is_admin', False)
+            }
+            for customer in customers
+        ]
+    except Exception as e:
+        print(f"Error getting customer list: {e}")
+        return []
