@@ -7,25 +7,265 @@
     <div class="col-md-6">
         <div class="card shadow">
             <div class="card-body p-5">
-                <h2 class="text-center mb-4">Login</h2>
+                <h2 class="text-center mb-4">Welcome Back</h2>
+                <p class="text-center text-muted mb-4">Sign in to your account to continue shopping</p>
 
-                <form method="POST">
+                <form method="POST" id="loginForm">
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
+                        <label for="email" class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ request.form.email if request.form }}"
+                               required placeholder="Enter your email">
+                        <div class="form-text">Enter the email you used for registration</div>
                     </div>
+
                     <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <label for="password" class="form-label">Password *</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               required placeholder="Enter your password" minlength="6">
+                        <div class="form-text">
+                            <a href="#" class="text-decoration-none" id="forgotPassword">Forgot password?</a>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Login</button>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe">
+                        <label class="form-check-label" for="rememberMe">Remember me</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
+                        Sign In
+                    </button>
                 </form>
 
-                <div class="text-center mt-3">
-                    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+                <div class="text-center mt-4">
+                    <p class="mb-2">Don't have an account?</p>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-primary">
+                        Create New Account
+                    </a>
+                </div>
+
+                <!-- Demo Accounts (for testing) -->
+                <div class="mt-4 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <strong>Demo Accounts:</strong><br>
+                        • Admin: admin@damm.com / admin123<br>
+                        • User: user@example.com / password123
+                    </small>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('loginForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const forgotPasswordLink = document.getElementById('forgotPassword');
+
+        // Form submission handler
+        form.addEventListener('submit', function (e) {
+            // Basic validation
+            if (!emailInput.value.trim() || !passwordInput.value.trim()) {
+                e.preventDefault();
+                showAlert('Please fill in all required fields.', 'warning');
+                return;
+            }
+
+            // Email format validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailInput.value)) {
+                e.preventDefault();
+                showAlert('Please enter a valid email address.', 'warning');
+                emailInput.focus();
+                return;
+            }
+
+            // Password length validation
+            if (passwordInput.value.length < 6) {
+                e.preventDefault();
+                showAlert('Password must be at least 6 characters long.', 'warning');
+                passwordInput.focus();
+                return;
+            }
+
+            // Show loading state
+            submitBtn.innerHTML = '⏳ Signing In...';
+            submitBtn.disabled = true;
+
+            console.log('✅ Login form submitted');
+        });
+
+        // Forgot password handler
+        forgotPasswordLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            showAlert('Please contact support at support@dammshop.com to reset your password.', 'info');
+        });
+
+        // Real-time input validation
+        const inputs = form.querySelectorAll('input[required]');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function () {
+                validateField(this);
+            });
+
+            input.addEventListener('input', function () {
+                // Remove validation styling when user starts typing
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                }
+            });
+        });
+
+        function validateField(field) {
+            if (field.type === 'email') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(field.value)) {
+                    field.classList.add('is-invalid');
+                    field.classList.remove('is-valid');
+                } else {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                }
+            } else if (field.type === 'password') {
+                if (field.value.length < 6) {
+                    field.classList.add('is-invalid');
+                    field.classList.remove('is-valid');
+                } else {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                }
+            } else {
+                if (field.value.trim() === '') {
+                    field.classList.add('is-invalid');
+                    field.classList.remove('is-valid');
+                } else {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                }
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            // Create alert element
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+            alertDiv.innerHTML = `
+            ${getIcon(type)} ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+            // Insert before the form
+            form.parentNode.insertBefore(alertDiv, form);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        function getIcon(type) {
+            const icons = {
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': 'ℹ️',
+                'danger': '🚫'
+            };
+            return icons[type] || 'ℹ️';
+        }
+
+        // Demo account auto-fill (for testing)
+        function setupDemoAccounts() {
+            const demoAccounts = {
+                'admin': {email: 'admin@damm.com', password: 'admin123'},
+                'user': {email: 'user@example.com', password: 'password123'}
+            };
+
+            // Add demo account buttons for easy testing
+            const demoContainer = document.querySelector('.bg-light');
+            if (demoContainer) {
+                const demoButtons = document.createElement('div');
+                demoButtons.className = 'mt-2';
+                demoButtons.innerHTML = `
+                <div class="btn-group btn-group-sm w-100">
+                    <button type="button" class="btn btn-outline-success demo-btn" data-account="admin">
+                        Fill Admin
+                    </button>
+                    <button type="button" class="btn btn-outline-info demo-btn" data-account="user">
+                        Fill User
+                    </button>
+                </div>
+            `;
+                demoContainer.appendChild(demoButtons);
+
+                // Add click handlers for demo buttons
+                document.querySelectorAll('.demo-btn').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const accountType = this.getAttribute('data-account');
+                        const account = demoAccounts[accountType];
+                        if (account) {
+                            emailInput.value = account.email;
+                            passwordInput.value = account.password;
+                            validateField(emailInput);
+                            validateField(passwordInput);
+                            showAlert(`Demo ${accountType} account filled!`, 'success');
+                        }
+                    });
+                });
+            }
+        }
+
+        setupDemoAccounts();
+        console.log('✅ Login form initialized');
+    });
+</script>
+
+<style>
+    .form-control.is-valid {
+        border-color: #198754;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3cpath d='M6 7v1'/%3e%3c/svg%3e");
+    }
+
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .card {
+        border: none;
+        border-radius: 1rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+
+    .demo-btn {
+        font-size: 0.75rem;
+    }
+
+    .bg-light {
+        background-color: #f8f9fa !important;
+        border-radius: 0.5rem;
+    }
+</style>
 {% endblock %}

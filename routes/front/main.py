@@ -22,6 +22,7 @@ class Users(db.Model):
     password = db.Column(db.String(128))
     gender = db.Column(db.String(128), default='male')
     profile = db.Column(db.String(128), nullable=True)
+    is_admin = db.Column(db.Boolean, default=False)  # Add this field if missing
 
 
 # Login required decorator
@@ -153,22 +154,39 @@ def checkOut():
 def login():
     # If user is already logged in, redirect to home
     if 'user_id' in session:
+        flash('You are already logged in!', 'info')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
+        # Basic validation
+        if not email or not password:
+            flash('Please fill in all fields', 'danger')
+            return render_template('login.html')
+
+        # Email format validation
+        if '@' not in email or '.' not in email:
+            flash('Please enter a valid email address', 'danger')
+            return render_template('login.html')
+
+        # Find user
         user = Users.query.filter_by(email=email).first()
 
         # Check if user exists and password matches
         if user and check_password_hash(user.password, password):
             session['user_id'] = user.id
             session['user_email'] = user.email
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
+            session['is_admin'] = getattr(user, 'is_admin', False)
+            flash(f'Login successful! Welcome back, {user.name}!', 'success')
+
+            # Redirect to intended page or home
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
         else:
             flash('Invalid email or password', 'danger')
+            return render_template('login.html')
 
     return render_template('login.html')
 
@@ -177,61 +195,92 @@ def login():
 def register():
     # If user is already logged in, redirect to home
     if 'user_id' in session:
+        flash('You are already logged in!', 'info')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
         gender = request.form.get('gender', 'male')
 
         # Basic validation
         if not name or not email or not password:
             flash('All fields are required', 'danger')
-            return render_template('register.html')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
+
+        if len(name) < 2:
+            flash('Name must be at least 2 characters long', 'danger')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
+
+        # Email format validation
+        if '@' not in email or '.' not in email:
+            flash('Please enter a valid email address', 'danger')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
 
         if password != confirm_password:
             flash('Passwords do not match', 'danger')
-            return render_template('register.html')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
 
         if len(password) < 6:
             flash('Password must be at least 6 characters long', 'danger')
-            return render_template('register.html')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
 
         # Check if user already exists
         existing_user = Users.query.filter_by(email=email).first()
         if existing_user:
-            flash('Email already registered', 'danger')
-            return render_template('register.html')
+            flash('Email already registered. Please use a different email or login.', 'danger')
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
 
         # Create new user
-        hashed_password = generate_password_hash(password)
-        new_user = Users(
-            name=name,
-            email=email,
-            password=hashed_password,
-            gender=gender,
-            profile=name
-        )
+        try:
+            hashed_password = generate_password_hash(password)
+            new_user = Users(
+                name=name,
+                email=email,
+                password=hashed_password,
+                gender=gender,
+                profile=name,
+                is_admin=False  # Default to regular user
+            )
 
-        db.session.add(new_user)
-        db.session.commit()
+            db.session.add(new_user)
+            db.session.commit()
 
-        # Auto login after registration
-        session['user_id'] = new_user.id
-        session['user_email'] = new_user.email
-        flash('Registration successful! Welcome to DAMM SHOP!', 'success')
-        return redirect(url_for('index'))
+            # Auto login after registration
+            session['user_id'] = new_user.id
+            session['user_email'] = new_user.email
+            session['is_admin'] = False
+
+            flash(f'Registration successful! Welcome to DAMM SHOP, {name}!', 'success')
+            return redirect(url_for('index'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred during registration. Please try again.', 'danger')
+            print(f"Registration error: {e}")
+            return render_template('register.html',
+                                   name=name, email=email, gender=gender)
 
     return render_template('register.html')
 
 
 @app.route("/logout")
 def logout():
-    session.pop('user_id', None)
-    session.pop('user_email', None)
-    flash('You have been logged out successfully.', 'info')
+    if 'user_id' in session:
+        user_name = session.get('user_email', 'User')
+        session.clear()
+        flash(f'You have been logged out successfully. Goodbye, {user_name}!', 'info')
+    else:
+        flash('You were not logged in.', 'info')
+
     return redirect(url_for('index'))
 
 
@@ -239,6 +288,10 @@ def logout():
 @login_required
 def profile():
     user = get_user_by_id(session['user_id'])
+    if not user:
+        session.clear()
+        flash('User not found. Please login again.', 'danger')
+        return redirect(url_for('login'))
     return render_template('profile.html', user=user)
 
 

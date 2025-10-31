@@ -7,34 +7,168 @@
     <div class="col-md-6">
         <div class="card shadow">
             <div class="card-body p-5">
-                <h2 class="text-center mb-4">Register</h2>
+                <h2 class="text-center mb-4">Create Account</h2>
 
-                <form method="POST">
+                <form method="POST" id="registerForm">
                     <div class="mb-3">
-                        <label for="name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required>
+                        <label for="name" class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ request.form.name if request.form }}"
+                               required minlength="2">
+                        <div class="form-text">Enter your full name</div>
                     </div>
+
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                        <label for="email" class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ request.form.email if request.form }}"
                                required>
+                        <div class="form-text">We'll never share your email with anyone else</div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Register</button>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password *</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               required minlength="6">
+                        <div class="form-text">Password must be at least 6 characters long</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password *</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                               required minlength="6">
+                        <div class="form-text">Re-enter your password</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="gender" class="form-label">Gender</label>
+                        <select class="form-control" id="gender" name="gender">
+                            <option value="male" {{
+                            'selected' if request.form.get('gender') == 'male' }}>Male</option>
+                            <option value="female" {{
+                            'selected' if request.form.get('gender') == 'female' }}>Female</option>
+                            <option value="other" {{
+                            'selected' if request.form.get('gender') == 'other' }}>Other</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
+                        Create Account
+                    </button>
                 </form>
 
-                <div class="text-center mt-3">
-                    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+                <div class="text-center mt-4">
+                    <p class="mb-0">Already have an account?
+                        <a href="{{ url_for('login') }}" class="fw-bold">Sign in here</a>
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('registerForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+
+        // Real-time password validation
+        function validatePasswords() {
+            if (password.value !== confirmPassword.value) {
+                confirmPassword.setCustomValidity("Passwords don't match");
+                confirmPassword.classList.add('is-invalid');
+            } else {
+                confirmPassword.setCustomValidity("");
+                confirmPassword.classList.remove('is-invalid');
+                confirmPassword.classList.add('is-valid');
+            }
+        }
+
+        password.addEventListener('input', validatePasswords);
+        confirmPassword.addEventListener('input', validatePasswords);
+
+        // Form submission handler
+        form.addEventListener('submit', function (e) {
+            // Validate passwords match
+            if (password.value !== confirmPassword.value) {
+                e.preventDefault();
+                alert('❌ Passwords do not match. Please check and try again.');
+                confirmPassword.focus();
+                return;
+            }
+
+            // Validate password length
+            if (password.value.length < 6) {
+                e.preventDefault();
+                alert('❌ Password must be at least 6 characters long.');
+                password.focus();
+                return;
+            }
+
+            // Show loading state
+            submitBtn.innerHTML = '⏳ Creating Account...';
+            submitBtn.disabled = true;
+
+            // Form will submit normally if all validations pass
+            console.log('✅ Form submitted successfully');
+        });
+
+        // Real-time input validation styling
+        const inputs = form.querySelectorAll('input[required]');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function () {
+                if (this.value.trim() === '') {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+
+            input.addEventListener('input', function () {
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                }
+            });
+        });
+
+        console.log('✅ Register form initialized');
+    });
+</script>
+
+<style>
+    .form-control.is-valid {
+        border-color: #198754;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3cpath d='M6 7v1'/%3e%3c/svg%3e");
+    }
+
+    .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .card {
+        border: none;
+        border-radius: 1rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+</style>
 {% endblock %}
