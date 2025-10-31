@@ -6,7 +6,6 @@ from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.order import Order, OrderItem
 from models.product import Product
-from product import products as API_PRODUCTS
 import os
 import threading
 from threading import Thread
@@ -51,7 +50,7 @@ def get_user_by_id(user_id):
 
 
 def fetch_products_from_database():
-    """Fetch products from local database"""
+    """Fetch products ONLY from local database"""
     try:
         db_products = Product.query.all()
         product_list = []
@@ -66,31 +65,10 @@ def fetch_products_from_database():
                 "source": "database"
             }
             product_list.append(product_data)
+        print(f"✅ Loaded {len(product_list)} products from database")
         return product_list
     except Exception as e:
-        print("Error fetching from database:", e)
-        return []
-
-
-def fetch_products_from_api():
-    """Fetch products from LOCAL API data (no HTTP calls)"""
-    try:
-        product_list = []
-        for product in API_PRODUCTS:
-            product_data = {
-                "id": product['id'] + 1000,
-                "title": product['title'],
-                "price": float(product['price']),
-                "category": product['category'],
-                "image": product['image'],
-                "description": product.get('description', 'No description available'),
-                "stock": 50,
-                "source": "api"
-            }
-            product_list.append(product_data)
-        return product_list
-    except Exception as e:
-        print("Error fetching from local API data:", e)
+        print("❌ Error fetching from database:", e)
         return []
 
 
@@ -118,27 +96,18 @@ def send_telegram_async(message):
 @app.route("/")
 def index():
     try:
-        # Get products from both database and LOCAL API
-        db_products = fetch_products_from_database()
-        api_products_data = fetch_products_from_api()
+        # Get products ONLY from database
+        product_list = fetch_products_from_database()
 
-        # Combine both product lists
-        product_list = db_products + api_products_data
-
-        print(
-            f"Loaded {len(product_list)} products total (Database: {len(db_products)}, API: {len(api_products_data)})")
+        print(f"Loaded {len(product_list)} products from database")
 
         user = get_user()
         return render_template("index.html", products=product_list, user=user)
 
     except Exception as e:
         print("Error in index route:", e)
-        # Fallback to static products
-        try:
-            product_list = API_PRODUCTS
-        except Exception as static_error:
-            print("Static products also failed:", static_error)
-            product_list = []
+        # Fallback to empty list
+        product_list = []
 
         user = get_user()
         return render_template("index.html", products=product_list, user=user)
@@ -458,44 +427,23 @@ def product_detail():
 
         product_data = None
 
-        # Database products (ID < 1000)
-        if pro_id < 1000:
-            print(f"🔍 Searching database for ID: {pro_id}")
-            product = Product.query.get(pro_id)
-            if product:
-                product_data = {
-                    "id": product.id,
-                    "title": product.name,
-                    "price": float(product.price),
-                    "description": f"Stock: {product.stock}",
-                    "category": str(product.category_id),
-                    "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
-                    "stock": product.stock,
-                    "source": "database"
-                }
-                print(f"✅ Found database product: {product_data['title']}")
-            else:
-                print(f"❌ Database product not found for ID: {pro_id}")
+        # Only handle database products
+        print(f"🔍 Searching database for ID: {pro_id}")
+        product = Product.query.get(pro_id)
+        if product:
+            product_data = {
+                "id": product.id,
+                "title": product.name,
+                "price": float(product.price),
+                "description": f"Database product - Stock: {product.stock}",
+                "category": str(product.category_id),
+                "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
+                "stock": product.stock if product.stock is not None else 0,
+                "source": "database"
+            }
+            print(f"✅ Found database product: {product_data['title']}")
         else:
-            # API products (ID >= 1000)
-            api_id = pro_id - 1000
-            print(f"🔍 Searching API products for ID: {api_id}")
-            for product in API_PRODUCTS:
-                if product['id'] == api_id:
-                    product_data = {
-                        "id": pro_id,
-                        "title": product['title'],
-                        "price": float(product['price']),
-                        "description": product.get('description', 'No description available'),
-                        "category": product['category'],
-                        "image": product['image'],
-                        "stock": 50,
-                        "source": "api"
-                    }
-                    print(f"✅ Found API product: {product_data['title']}")
-                    break
-            if not product_data:
-                print(f"❌ API product not found for ID: {api_id}")
+            print(f"❌ Database product not found for ID: {pro_id}")
 
         user = get_user()
         return render_template("detail.html", product=product_data, user=user)
@@ -505,77 +453,23 @@ def product_detail():
         return render_template("detail.html", product=None, user=get_user())
 
 
-# API endpoint to get products (optional - for frontend API calls)
+# API endpoint to get products (only database products)
 @app.route("/api/products")
 def api_products():
     try:
+        print("🔍 /api/products endpoint called - fetching from database")
         db_products = fetch_products_from_database()
-        api_products_data = fetch_products_from_api()
-
-        all_products = db_products + api_products_data
-        return jsonify(all_products)
+        print(f"✅ Returning {len(db_products)} products from database")
+        return jsonify(db_products)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"❌ Error in /api/products: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Return empty array instead of error
+        return jsonify([])
 
 
 # ==================== ADMIN ROUTES ====================
-#
-# @app.route("/admin/product/list")
-# def admin_product_list():
-#     try:
-#         # Get products from both database and API
-#         db_products = fetch_products_from_database()
-#         api_products_data = fetch_products_from_api()
-#         all_products = db_products + api_products_data
-#
-#         # Fix category format for admin display
-#         for product in all_products:
-#             # Add cost field if missing
-#             if 'cost' not in product:
-#                 product['cost'] = round(float(product['price']) * 0.6, 2)
-#
-#             # Fix category format for admin template
-#             category = product.get('category', '')
-#
-#             # Convert category strings to IDs for the admin template
-#             if category == "men's clothing":
-#                 product['category'] = 1
-#             elif category == "women's clothing":
-#                 product['category'] = 2
-#             elif category == "jewelery":
-#                 product['category'] = 3
-#             elif category == "electronics":
-#                 product['category'] = 4
-#             else:
-#                 # For database products or unknown categories, use default
-#                 if isinstance(category, str) and category.isdigit():
-#                     product['category'] = int(category)
-#                 else:
-#                     product['category'] = 1  # Default to men's clothing
-#
-#         print(f"📦 Admin: Sending {len(all_products)} products")
-#         return jsonify(all_products)
-#     except Exception as e:
-#         print(f"❌ Error in admin_product_list: {e}")
-#         return jsonify([])
-#
-#
-# @app.route("/admin/category/list")
-# def admin_category_list():
-#     try:
-#         # Define categories
-#         categories = [
-#             {"id": 1, "name": "men's clothing"},
-#             {"id": 2, "name": "women's clothing"},
-#             {"id": 3, "name": "jewelery"},
-#             {"id": 4, "name": "electronics"},
-#             {"id": 5, "name": "sports"}
-#         ]
-#         return jsonify(categories)
-#     except Exception as e:
-#         print(f"❌ Error in admin_category_list: {e}")
-#         return jsonify([])
-#
 
 @app.route("/admin/product/create", methods=['POST'])
 def admin_product_create():
@@ -681,19 +575,14 @@ def admin_product_delete():
         if not product_id:
             return jsonify({"success": False, "error": "Product ID is required"}), 400
 
-        # Check if it's a database product (ID < 1000) or API product
-        if int(product_id) < 1000:
-            product = Product.query.get(int(product_id))
-            if product:
-                db.session.delete(product)
-                db.session.commit()
-                print(f"✅ Product deleted: ID {product_id}")
-                return jsonify({"success": True, "message": "Product deleted successfully"})
-            else:
-                return jsonify({"success": False, "error": "Product not found"}), 404
+        product = Product.query.get(int(product_id))
+        if product:
+            db.session.delete(product)
+            db.session.commit()
+            print(f"✅ Product deleted: ID {product_id}")
+            return jsonify({"success": True, "message": "Product deleted successfully"})
         else:
-            # API products cannot be deleted (they're read-only)
-            return jsonify({"success": False, "error": "Cannot delete API products"}), 400
+            return jsonify({"success": False, "error": "Product not found"}), 404
 
     except Exception as e:
         db.session.rollback()
@@ -710,7 +599,7 @@ def debug_test():
 
 @app.route("/debug-products")
 def debug_products():
-    products = fetch_products_from_database() + fetch_products_from_api()
+    products = fetch_products_from_database()
     return jsonify([{"id": p["id"], "title": p["title"]} for p in products])
 
 
