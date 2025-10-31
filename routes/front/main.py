@@ -72,28 +72,6 @@ def fetch_products_from_database():
         return []
 
 
-def fetch_products_from_api():
-    """Fetch products from LOCAL API data (no HTTP calls)"""
-    try:
-        product_list = []
-        for product in API_PRODUCTS:
-            product_data = {
-                "id": product['id'] + 1000,
-                "title": product['title'],
-                "price": float(product['price']),
-                "category": product['category'],
-                "image": product['image'],
-                "description": product.get('description', 'No description available'),
-                "stock": 50,
-                "source": "api"
-            }
-            product_list.append(product_data)
-        return product_list
-    except Exception as e:
-        print("Error fetching from local API data:", e)
-        return []
-
-
 # Background email function
 def send_email_async(app, msg):
     """Send email in background thread"""
@@ -538,21 +516,6 @@ def admin_product_list():
         return jsonify([])
 
 
-@app.route("/admin/category/list")
-def admin_category_list():
-    try:
-        # Define categories
-        categories = [
-            {"id": 1, "name": "men's clothing"},
-            {"id": 2, "name": "women's clothing"},
-            {"id": 3, "name": "jewelery"},
-            {"id": 4, "name": "electronics"},
-            {"id": 5, "name": "sports"}
-        ]
-        return jsonify(categories)
-    except Exception as e:
-        print(f"❌ Error in admin_category_list: {e}")
-        return jsonify([])
 
 
 @app.route("/admin/product/create", methods=['POST'])
