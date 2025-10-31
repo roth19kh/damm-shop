@@ -7,6 +7,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Import your Product model
 from models.product import Product
+# Import your local API products
+from product import products as API_PRODUCTS
 
 
 # Define Users model that maps to customer table
@@ -51,7 +53,7 @@ def fetch_products_from_database():
                 "price": float(product.price),
                 "category": str(product.category_id),
                 "image": f"/static/image/product/{product.image}" if product.image else "/static/image/No_Image_Available.jpg",
-                "stock": product.stock if product.stock is not None else 0,  # Ensure stock is never None
+                "stock": product.stock if product.stock is not None else 0,
                 "source": "database"
             }
             product_list.append(product_data)
@@ -60,38 +62,33 @@ def fetch_products_from_database():
         print("Error fetching from database:", e)
         return []
 
+
 def fetch_products_from_api():
-    """Fetch products from external API (FakeStore API)"""
+    """Fetch products from LOCAL API data (no HTTP calls)"""
     try:
-        response = requests.get('https://fakestoreapi.com/products', timeout=10)
-        if response.status_code == 200:
-            api_products = response.json()
-            product_list = []
-            for product in api_products:
-                product_data = {
-                    "id": product['id'] + 1000,  # Offset to avoid ID conflicts with database
-                    "title": product['title'],
-                    "price": float(product['price']),
-                    "category": product['category'],
-                    "image": product['image'],
-                    "description": product.get('description', ''),
-                    "stock": 10,  # Default stock for API products
-                    "source": "api"
-                }
-                product_list.append(product_data)
-            return product_list
-        else:
-            print(f"API returned status code: {response.status_code}")
-            return []
+        product_list = []
+        for product in API_PRODUCTS:
+            product_data = {
+                "id": product['id'] + 1000,  # Offset to avoid ID conflicts with database
+                "title": product['title'],
+                "price": float(product['price']),
+                "category": product['category'],
+                "image": product['image'],
+                "description": product.get('description', ''),
+                "stock": 50,  # Default stock for API products
+                "source": "api"
+            }
+            product_list.append(product_data)
+        return product_list
     except Exception as e:
-        print("Error fetching from API:", e)
+        print("Error fetching from local API data:", e)
         return []
 
 
 @app.route("/")
 def index():
     try:
-        # Get products from both database and API
+        # Get products from both database and LOCAL API
         db_products = fetch_products_from_database()
         api_products = fetch_products_from_api()
 
@@ -108,10 +105,9 @@ def index():
 
     except Exception as e:
         print("Error in index route:", e)
-        # Final fallback to static products
+        # Fallback to static products
         try:
-            from product import products as static_products
-            product_list = static_products
+            product_list = API_PRODUCTS
         except Exception as static_error:
             print("Static products also failed:", static_error)
             product_list = []
@@ -401,12 +397,17 @@ def product_detail():
                 else:
                     product_data = None
             else:
-                # API product - fetch from API
+                # API product - get from LOCAL data
                 api_id = pro_id - 1000  # Convert back to original API ID
                 try:
-                    response = requests.get(f'https://fakestoreapi.com/products/{api_id}', timeout=10)
-                    if response.status_code == 200:
-                        api_product = response.json()
+                    # Find product in local API data
+                    api_product = None
+                    for product in API_PRODUCTS:
+                        if product['id'] == api_id:
+                            api_product = product
+                            break
+
+                    if api_product:
                         product_data = {
                             "id": pro_id,
                             "title": api_product['title'],
@@ -414,7 +415,7 @@ def product_detail():
                             "description": api_product['description'],
                             "category": api_product['category'],
                             "image": api_product['image'],
-                            "stock": 10,
+                            "stock": 50,
                             "source": "api"
                         }
                     else:
@@ -433,7 +434,8 @@ def product_detail():
         try:
             from product import get_product_by_id
             pro_id = request.args.get('pro_id', type=int)
-            product_data = get_product_by_id(pro_id)
+            if pro_id and pro_id >= 1000:
+                product_data = get_product_by_id(pro_id - 1000)
         except:
             product_data = None
 

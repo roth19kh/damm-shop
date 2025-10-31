@@ -17,6 +17,8 @@ migrate = Migrate(app, db)
 
 
 import models
+
+
 import routes
 
 if __name__ == '__main__':
