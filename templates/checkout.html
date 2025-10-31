@@ -93,113 +93,119 @@
 
 {% block script %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Load cart from localStorage
-        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-        const cartSummary = document.getElementById('cartSummary');
-        const cartDataInput = document.getElementById('cartData');
-        const totalAmountInput = document.getElementById('totalAmount');
+    document.getElementById('checkoutForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
 
-        if (cart.length === 0) {
-            cartSummary.innerHTML = '<p class="text-muted">Your cart is empty</p>';
-            document.getElementById('checkout-btn').disabled = true;
-            return;
-        }
+        const submitBtn = document.getElementById('checkout-btn');
+        const originalText = submitBtn.innerHTML;
 
-        // Display cart items
-        let total = 0;
-        let summaryHTML = '';
+        // Show loading state
+        submitBtn.innerHTML = '⏳ Placing Order...';
+        submitBtn.disabled = true;
 
-        cart.forEach(item => {
-            const itemTotal = item.price * item.qty;
-            total += itemTotal;
-            summaryHTML += `
-            <div class="d-flex justify-content-between mb-2">
-                <span>${item.title} x ${item.qty}</span>
-                <span>$${itemTotal.toFixed(2)}</span>
-            </div>
-        `;
-        });
+        try {
+            // Prepare form data
+            const formData = new FormData(this);
+            const formObject = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                address: formData.get('address'),
+                city: formData.get('city'),
+                country: formData.get('country'),
+                phone: formData.get('phone'),
+                payment: formData.get('payment'),
+                shipping_fee: parseFloat(formData.get('shipping_fee')),
+                total: parseFloat(formData.get('total')),
+                cart: JSON.parse(formData.get('cart_data'))
+            };
 
-        summaryHTML += `
-        <hr>
-        <div class="d-flex justify-content-between">
-            <strong>Total:</strong>
-            <strong>$${total.toFixed(2)}</strong>
-        </div>
-    `;
+            console.log('📦 Sending order data:', formObject);
 
-        cartSummary.innerHTML = summaryHTML;
+            // Step 1: Test basic POST request
+            console.log("🔍 Step 1: Testing basic POST...");
+            const testResponse = await fetch('/test-post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({test: "hello"})
+            });
 
-        // Set hidden fields
-        cartDataInput.value = JSON.stringify(cart);
-        totalAmountInput.value = total.toFixed(2);
+            const testResult = await testResponse.json();
+            console.log("✅ Test POST result:", testResult);
 
-        // Form submission handler - ADD THIS PART
-        document.getElementById('checkoutForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const submitBtn = document.getElementById('checkout-btn');
-            const originalText = submitBtn.innerHTML;
-
-            // Show loading state
-            submitBtn.innerHTML = '⏳ Placing Order...';
-            submitBtn.disabled = true;
-
-            try {
-                // Prepare form data
-                const formData = new FormData(this);
-                const formObject = {
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    address: formData.get('address'),
-                    city: formData.get('city'),
-                    country: formData.get('country'),
-                    phone: formData.get('phone'),
-                    payment: formData.get('payment'),
-                    shipping_fee: parseFloat(formData.get('shipping_fee')),
-                    total: parseFloat(formData.get('total')),
-                    cart: JSON.parse(formData.get('cart_data'))
-                };
-
-                console.log('Sending order data:', formObject);
-
-                const response = await fetch('/placeOrder', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formObject)
-                });
-
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const result = await response.json();
-
-                    if (response.ok) {
-                        alert(result.message);
-                        // Clear cart and redirect
-                        localStorage.removeItem('cart');
-                        window.location.href = '/';
-                    } else {
-                        alert('Error: ' + result.error);
-                    }
-                } else {
-                    // Handle non-JSON response (HTML error page)
-                    const text = await response.text();
-                    console.error('Server returned HTML error:', text);
-                    alert('Server error occurred. Please check the console for details.');
-                }
-            } catch (error) {
-                console.error('Error placing order:', error);
-                alert('Failed to place order. Please try again.');
-            } finally {
-                // Restore button state
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
+            if (!testResponse.ok) {
+                throw new Error('Basic POST test failed: ' + testResult.error);
             }
-        });
+
+            // Step 2: Test with actual order data
+            console.log("🔍 Step 2: Testing with order data...");
+            const testOrderResponse = await fetch('/test-post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formObject)
+            });
+
+            const testOrderResult = await testOrderResponse.json();
+            console.log("✅ Test order POST result:", testOrderResult);
+
+            if (!testOrderResponse.ok) {
+                throw new Error('Order data test failed: ' + testOrderResult.error);
+            }
+
+            // Step 3: Try the actual placeOrder endpoint
+            console.log("🔍 Step 3: Trying actual placeOrder...");
+            const response = await fetch('/placeOrder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formObject)
+            });
+
+            console.log("📊 Response status:", response.status);
+            console.log("📊 Response status text:", response.statusText);
+
+            // Handle response
+            if (response.ok) {
+                const result = await response.json();
+                console.log("✅ Success:", result);
+                alert('✅ ' + result.message);
+                // Clear cart and redirect
+                localStorage.removeItem('cart');
+                window.location.href = '/';
+            } else {
+                // Try to get error message
+                try {
+                    const errorResult = await response.json();
+                    console.error("❌ Error response:", errorResult);
+                    alert('❌ Error: ' + errorResult.error);
+                } catch (jsonError) {
+                    // If response is not JSON, get text
+                    const errorText = await response.text();
+                    console.error("❌ Non-JSON error:", errorText);
+
+                    if (response.status === 401) {
+                        alert('🔐 Please login again to place an order.');
+                        window.location.href = '/login';
+                    } else if (response.status === 500) {
+                        alert('🚨 Server error. Please try again later.');
+                    } else {
+                        alert('❌ Error: ' + response.status + ' - ' + errorText.substring(0, 100));
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('💥 Network error:', error);
+            alert('🌐 Network error: ' + error.message);
+        } finally {
+            // Restore button state
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     });
 </script>
 
