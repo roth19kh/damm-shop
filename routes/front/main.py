@@ -416,6 +416,7 @@ def placeOrder():
         print(f"❌ ERROR traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
+
 @app.route("/product")
 def product_detail():
     try:
@@ -503,3 +504,36 @@ def api_products():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+
+
+    @app.route("/debug-test")
+    def debug_test():
+        return jsonify({"status": "debug route works"})
+
+
+    @app.route("/debug-order-simple", methods=['POST'])
+    def debug_order_simple():
+        try:
+            data = request.get_json()
+            return jsonify({
+                "status": "success",
+                "received": list(data.keys()) if data else "no data"
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+    @app.route("/debug-db")
+    def debug_db():
+        try:
+            # Test database connection
+            from models.order import Order
+            order_count = Order.query.count()
+            return jsonify({
+                "database": "connected",
+                "orders_count": order_count
+            })
+        except Exception as e:
+            return jsonify({"database_error": str(e)}), 500
