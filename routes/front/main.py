@@ -8,7 +8,8 @@ from models.order import Order, OrderItem
 from models.product import Product
 from product import products as API_PRODUCTS
 import os
-
+import threading
+from threading import Thread
 
 # Define Users model that maps to customer table
 class Users(db.Model):
@@ -22,13 +23,11 @@ class Users(db.Model):
     gender = db.Column(db.String(128), default='male')
     profile = db.Column(db.String(128), nullable=True)
 
-
 # Helper function to get current user
 def get_user():
     if 'user_id' in session:
         return Users.query.get(session['user_id'])
     return None
-
 
 # Login required decorator
 def login_required(f):
@@ -39,13 +38,10 @@ def login_required(f):
             flash('Please login to access this page.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
-
     return decorated_function
-
 
 def get_user_by_id(user_id):
     return Users.query.get(user_id)
-
 
 def fetch_products_from_database():
     """Fetch products from local database"""
@@ -68,7 +64,6 @@ def fetch_products_from_database():
         print("Error fetching from database:", e)
         return []
 
-
 def fetch_products_from_api():
     """Fetch products from LOCAL API data (no HTTP calls)"""
     try:
@@ -90,6 +85,24 @@ def fetch_products_from_api():
         print("Error fetching from local API data:", e)
         return []
 
+# Background email function
+def send_email_async(app, msg):
+    """Send email in background thread"""
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print("✅ Email sent successfully in background")
+        except Exception as e:
+            print(f"⚠️ Background email failed: {e}")
+
+# Background Telegram function
+def send_telegram_async(message):
+    """Send Telegram in background thread"""
+    try:
+        send_order_to_telegram(message)
+        print("✅ Telegram sent successfully in background")
+    except Exception as e:
+        print(f"⚠️ Background Telegram failed: {e}")
 
 @app.route("/")
 def index():
@@ -118,18 +131,15 @@ def index():
         user = get_user()
         return render_template("index.html", products=product_list, user=user)
 
-
 @app.route("/contact")
 def contact():
     user = get_user()
     return render_template("contact.html", user=user)
 
-
 @app.route("/about")
 def about():
     user = get_user()
     return render_template("about.html", user=user)
-
 
 @app.route("/cart")
 @login_required
@@ -137,13 +147,11 @@ def cart():
     user = get_user_by_id(session['user_id'])
     return render_template("cart.html", user=user)
 
-
 @app.route("/checkout")
 @login_required
 def checkOut():
     user = get_user_by_id(session['user_id'])
     return render_template("checkout.html", user=user)
-
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -167,7 +175,6 @@ def login():
             flash('Invalid email or password', 'danger')
 
     return render_template('login.html')
-
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
@@ -222,7 +229,6 @@ def register():
 
     return render_template('register.html')
 
-
 @app.route("/logout")
 def logout():
     session.pop('user_id', None)
@@ -230,13 +236,11 @@ def logout():
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('index'))
 
-
 @app.route("/profile")
 @login_required
 def profile():
     user = get_user_by_id(session['user_id'])
     return render_template('profile.html', user=user)
-
 
 # Email Config
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -247,7 +251,6 @@ app.config['MAIL_PASSWORD'] = 'bjbu yxgl hixz wriu'
 app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
 
 mail = Mail(app)
-
 
 def send_order_to_telegram(message):
     token = "7938087424:AAESzgCJ5UjfYpQlRu15Xayy7OTuVUaFYmE"
@@ -265,7 +268,6 @@ def send_order_to_telegram(message):
     except Exception as e:
         print("Telegram send error:", e)
         return False
-
 
 @app.route("/placeOrder", methods=['POST'])
 @login_required
@@ -341,99 +343,85 @@ def placeOrder():
             db.session.rollback()
             raise db_error
 
-        # Conditional Email and Telegram - Only send if not on Render free tier
-        email_sent = False
-        telegram_sent = False
+        # Send email and Telegram in background threads
+        email_started = False
+        telegram_started = False
 
-        # Check if we're on Render free tier
-        is_render_free_tier = os.environ.get('RENDER') == 'true'
+        # Prepare and send email in background thread
+        try:
+            print("✅ Preparing email in background...")
+            msg = Message(
+                subject=f"Your Order Invoice #{
+    order.id} - DAMM SHOP",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[data['email']]
+            )
+            msg.html = render_template(
+                "invoice_email.html",
+                name=data['name'],
+                phone=data.get('phone'),
+                address=data['address'],
+                city=data['city'],
+                country=data['country'],
+                payment=data['payment'],
+                shipping_fee=data.get('shipping_fee', 0),
+                total=data['total'],
+                cart=cart_items,
+                date=datetime.now().strftime("%d-%m-%Y %H:%M"),
+                order_id=order.id
+            )
+            # Send email in background thread
+            email_thread = Thread(target=send_email_async, args=(app, msg))
+            email_thread.daemon = True  # Daemon thread won't block shutdown
+            email_thread.start()
+            email_started = True
+            print("✅ Email thread started")
+        except Exception as e:
+            print(f"⚠️ Email preparation failed: {e}")
 
-        if not is_render_free_tier:
-            # Try to send email (skip if fails)
-            try:
-                print("✅ Attempting to send email...")
-                msg = Message(
-                    subject="Your Order Invoice",
-                    sender=app.config['MAIL_USERNAME'],
-                    recipients=[data['email']]
-                )
-                msg.html = render_template(
-                    "invoice_email.html",
-                    name=data['name'],
-                    phone=data.get('phone'),
-                    address=data['address'],
-                    city=data['city'],
-                    country=data['country'],
-                    payment=data['payment'],
-                    shipping_fee=data.get('shipping_fee', 0),
-                    total=data['total'],
-                    cart=cart_items,
-                    date=datetime.now().strftime("%d-%m-%Y %H:%M")
-                )
-                mail.send(msg)
-                email_sent = True
-                print("✅ Email sent successfully")
-            except Exception as e:
-                print(f"⚠️ Email sending failed: {e}")
-                email_sent = False
+        # Prepare and send Telegram in background thread
+        try:
+            print("✅ Preparing Telegram in background...")
+            telegram_message = f"""
+🛒 <b>New Order Received!</b>
 
-            # Try to send Telegram (skip if fails)
-            try:
-                print("✅ Attempting to send Telegram message...")
-                message = f"""
-                🛒 <b>New Order Received!</b>
+👤 <b>Customer:</b> {data['name']}
+📧 <b>Email:</b> {data['email']}
+📞 <b>Phone:</b> {data.get('phone', 'N/A')}
+🏠 <b>Address:</b> {data['address']}, {data['city']}, {data['country']}
 
-                👤 <b>Customer:</b> {data['name']}
-                📧 <b>Email:</b> {data['email']}
-                📞 <b>Phone:</b> {data.get('phone')}
-                🏠 <b>Address:</b> {data['address']} {data['city']} {data['country']}
+🛍️ <b>Items:</b>
+"""
+            for item in cart_items:
+                telegram_message += f"• {item['title']} x{item['qty']} - ${item['price']:.2f}\n"
 
-                🛍️ <b>Items:</b>
-                """
-                for item in cart_items:
-                    message += f"• {item['title']}\n"
-                    message += f"  Quantity: {item['qty']}\n"
-                    message += f"  Price: ${item['price']:.2f}\n\n"
+            telegram_message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
+            telegram_message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
+            telegram_message += f"\n🆔 <b>Order ID:</b> #{order.id}"
+            telegram_message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
 
-                message += f"\n💰 <b>Total:</b> ${data['total']:.2f}"
-                message += f"\n💳 <b>Payment Method:</b> {data['payment']}"
-                message += f"\n🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"
-
-                telegram_sent = send_order_to_telegram(message)
-                if telegram_sent:
-                    print("✅ Telegram message sent")
-                else:
-                    print("⚠️ Telegram message failed")
-            except Exception as e:
-                print(f"⚠️ Telegram sending failed: {e}")
-                telegram_sent = False
-        else:
-            print("ℹ️ Skipping email and Telegram on Render free tier")
-
-        # Build success message based on what was sent
-        success_message = "Order placed successfully! Your order has been recorded."
-        if email_sent:
-            success_message += " Invoice sent to your email."
-        if telegram_sent:
-            success_message += " Notification sent to admin."
-        if is_render_free_tier:
-            success_message += " (Email/Telegram disabled on free tier)"
+            # Send Telegram in background thread
+            telegram_thread = Thread(target=send_telegram_async, args=(telegram_message,))
+            telegram_thread.daemon = True  # Daemon thread won't block shutdown
+            telegram_thread.start()
+            telegram_started = True
+            print("✅ Telegram thread started")
+        except Exception as e:
+            print(f"⚠️ Telegram preparation failed: {e}")
 
         print("✅ Order processing completed successfully")
         return jsonify({
             "success": True,
-            "message": success_message,
+            "message": "Order placed successfully! Invoice and notifications are being sent.",
             "order_id": order.id,
-            "email_sent": email_sent,
-            "telegram_sent": telegram_sent,
-            "is_free_tier": is_render_free_tier
+            "email_started": email_started,
+            "telegram_started": telegram_started
         }), 200
 
     except Exception as e:
         db.session.rollback()
         print(f"❌ CRITICAL ERROR in placeOrder: {str(e)}")
         return jsonify({"error": "Order processing failed"}), 500
-
 
 @app.route("/product")
 def product_detail():
@@ -493,7 +481,6 @@ def product_detail():
         print(f"❌ Error in product_detail: {e}")
         return render_template("detail.html", product=None, user=get_user())
 
-
 # API endpoint to get products (optional - for frontend API calls)
 @app.route("/api/products")
 def api_products():
@@ -505,18 +492,15 @@ def api_products():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 # Debug routes
 @app.route("/debug-test")
 def debug_test():
     return jsonify({"status": "debug route works"})
 
-
 @app.route("/debug-products")
 def debug_products():
     products = fetch_products_from_database() + fetch_products_from_api()
     return jsonify([{"id": p["id"], "title": p["title"]} for p in products])
-
 
 @app.route("/debug-order-simple", methods=['POST'])
 def debug_order_simple():
@@ -529,7 +513,6 @@ def debug_order_simple():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/debug-db")
 def debug_db():
     try:
@@ -540,7 +523,6 @@ def debug_db():
         })
     except Exception as e:
         return jsonify({"database_error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True)
