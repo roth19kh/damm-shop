@@ -72,6 +72,28 @@ def fetch_products_from_database():
         return []
 
 
+def fetch_products_from_api():
+    """Fetch products from LOCAL API data (no HTTP calls)"""
+    try:
+        product_list = []
+        for product in API_PRODUCTS:
+            product_data = {
+                "id": product['id'] + 1000,
+                "title": product['title'],
+                "price": float(product['price']),
+                "category": product['category'],
+                "image": product['image'],
+                "description": product.get('description', 'No description available'),
+                "stock": 50,
+                "source": "api"
+            }
+            product_list.append(product_data)
+        return product_list
+    except Exception as e:
+        print("Error fetching from local API data:", e)
+        return []
+
+
 # Background email function
 def send_email_async(app, msg):
     """Send email in background thread"""
@@ -98,12 +120,13 @@ def index():
     try:
         # Get products from both database and LOCAL API
         db_products = fetch_products_from_database()
-        api_products = fetch_products_from_api()
+        api_products_data = fetch_products_from_api()
 
         # Combine both product lists
-        product_list = db_products + api_products
+        product_list = db_products + api_products_data
 
-        print(f"Loaded {len(product_list)} products total (Database: {len(db_products)}, API: {len(api_products)})")
+        print(
+            f"Loaded {len(product_list)} products total (Database: {len(db_products)}, API: {len(api_products_data)})")
 
         user = get_user()
         return render_template("index.html", products=product_list, user=user)
@@ -487,36 +510,72 @@ def product_detail():
 def api_products():
     try:
         db_products = fetch_products_from_database()
-        api_products = fetch_products_from_api()
-        all_products = db_products + api_products
+        api_products_data = fetch_products_from_api()
+
+        all_products = db_products + api_products_data
         return jsonify(all_products)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 # ==================== ADMIN ROUTES ====================
-
-@app.route("/admin/product/list")
-def admin_product_list():
-    try:
-        # Get products from both database and API
-        db_products = fetch_products_from_database()
-        api_products = fetch_products_from_api()
-        all_products = db_products + api_products
-
-        # Add cost field if missing (calculate as 60% of price)
-        for product in all_products:
-            if 'cost' not in product:
-                product['cost'] = round(float(product['price']) * 0.6, 2)
-
-        print(f"📦 Admin: Sending {len(all_products)} products")
-        return jsonify(all_products)
-    except Exception as e:
-        print(f"❌ Error in admin_product_list: {e}")
-        return jsonify([])
-
-
-
+#
+# @app.route("/admin/product/list")
+# def admin_product_list():
+#     try:
+#         # Get products from both database and API
+#         db_products = fetch_products_from_database()
+#         api_products_data = fetch_products_from_api()
+#         all_products = db_products + api_products_data
+#
+#         # Fix category format for admin display
+#         for product in all_products:
+#             # Add cost field if missing
+#             if 'cost' not in product:
+#                 product['cost'] = round(float(product['price']) * 0.6, 2)
+#
+#             # Fix category format for admin template
+#             category = product.get('category', '')
+#
+#             # Convert category strings to IDs for the admin template
+#             if category == "men's clothing":
+#                 product['category'] = 1
+#             elif category == "women's clothing":
+#                 product['category'] = 2
+#             elif category == "jewelery":
+#                 product['category'] = 3
+#             elif category == "electronics":
+#                 product['category'] = 4
+#             else:
+#                 # For database products or unknown categories, use default
+#                 if isinstance(category, str) and category.isdigit():
+#                     product['category'] = int(category)
+#                 else:
+#                     product['category'] = 1  # Default to men's clothing
+#
+#         print(f"📦 Admin: Sending {len(all_products)} products")
+#         return jsonify(all_products)
+#     except Exception as e:
+#         print(f"❌ Error in admin_product_list: {e}")
+#         return jsonify([])
+#
+#
+# @app.route("/admin/category/list")
+# def admin_category_list():
+#     try:
+#         # Define categories
+#         categories = [
+#             {"id": 1, "name": "men's clothing"},
+#             {"id": 2, "name": "women's clothing"},
+#             {"id": 3, "name": "jewelery"},
+#             {"id": 4, "name": "electronics"},
+#             {"id": 5, "name": "sports"}
+#         ]
+#         return jsonify(categories)
+#     except Exception as e:
+#         print(f"❌ Error in admin_category_list: {e}")
+#         return jsonify([])
+#
 
 @app.route("/admin/product/create", methods=['POST'])
 def admin_product_create():
