@@ -4,6 +4,8 @@ import requests
 from datetime import datetime
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
+from models.order import Order, OrderItem
+from datetime import datetime
 
 # Import your Product model
 from models.product import Product
@@ -279,14 +281,14 @@ def placeOrder():
     try:
         print("=== PLACE ORDER STARTED ===")
         data = request.get_json()
-        print(f"Received data: {data}")
+        print(f"✅ Received data: {data}")
 
         if not data:
             print("❌ No data received")
             return jsonify({"error": "No data received"}), 400
 
         cart_items = data.get("cart", [])
-        print(f"Cart items: {cart_items}")
+        print(f"✅ Cart items: {cart_items}")
 
         if not cart_items:
             print("❌ Cart is empty")
@@ -301,45 +303,55 @@ def placeOrder():
 
         print("✅ All validations passed")
 
-        # Create order record
-        order = Order(
-            customer_id=session['user_id'],
-            customer_name=data['name'],
-            customer_email=data['email'],
-            customer_phone=data.get('phone', ''),
-            shipping_address=data['address'],
-            city=data['city'],
-            country=data['country'],
-            payment_method=data['payment'],
-            shipping_fee=float(data.get('shipping_fee', 0)),
-            total_amount=float(data['total']),
-            status='pending'
-        )
-        print(f"✅ Order object created: {order}")
-
-        db.session.add(order)
-        db.session.flush()  # Get the order ID without committing
-        print(f"✅ Order flushed with ID: {order.id}")
-
-        # Create order items
-        for item in cart_items:
-            order_item = OrderItem(
-                order_id=order.id,
-                product_id=item['id'],
-                product_name=item['title'],
-                product_price=float(item['price']),
-                quantity=item['qty'],
-                subtotal=float(item['price']) * item['qty']
-            )
-            db.session.add(order_item)
-            print(f"✅ Added order item: {item['title']}")
-
-        # Commit both order and order items
-        db.session.commit()
-        print(f"✅ Order #{order.id} saved to database with {len(cart_items)} items")
-
-        # Email sending
         try:
+            print("✅ Creating order record...")
+            # Create order record - match your Order model structure
+            order = Order(
+                customer_id=session['user_id'],
+                customer_name=data['name'],
+                customer_email=data['email'],
+                customer_phone=data.get('phone', ''),
+                shipping_address=data['address'],
+                city=data['city'],
+                country=data['country'],
+                payment_method=data['payment'],
+                shipping_fee=float(data.get('shipping_fee', 0)),
+                total_amount=float(data['total']),
+                status='pending',
+                order_date=datetime.now(),  # Use datetime.now() instead of datetime.utcnow()
+                updated_at=datetime.now()
+            )
+            print(f"✅ Order object created")
+
+            db.session.add(order)
+            db.session.flush()  # Get the order ID without committing
+            print(f"✅ Order flushed with ID: {order.id}")
+
+            # Create order items - match your OrderItem model structure
+            for item in cart_items:
+                order_item = OrderItem(
+                    order_id=order.id,
+                    product_id=item['id'],
+                    product_name=item['title'],
+                    product_price=float(item['price']),
+                    quantity=item['qty'],
+                    subtotal=float(item['price']) * item['qty']
+                )
+                db.session.add(order_item)
+                print(f"✅ Added order item: {item['title']}")
+
+            # Commit both order and order items
+            db.session.commit()
+            print(f"✅ Order #{order.id} saved to database with {len(cart_items)} items")
+
+        except Exception as db_error:
+            print(f"❌ DATABASE ERROR: {db_error}")
+            db.session.rollback()
+            raise db_error
+
+        # Email sending (optional - comment out if causing issues)
+        try:
+            print("✅ Attempting to send email...")
             msg = Message(
                 subject="Your Order Invoice",
                 sender=app.config['MAIL_USERNAME'],
@@ -361,10 +373,11 @@ def placeOrder():
             mail.send(msg)
             print("✅ Email sent successfully")
         except Exception as e:
-            print(f"❌ Error sending email: {e}")
+            print(f"⚠️ Email sending failed (non-critical): {e}")
 
-        # Send Message To Telegram
+        # Send Message To Telegram (optional - comment out if causing issues)
         try:
+            print("✅ Attempting to send Telegram message...")
             message = f"""
             🛒 <b>New Order Received!</b>
 
@@ -387,8 +400,9 @@ def placeOrder():
             send_order_to_telegram(message)
             print("✅ Telegram message sent")
         except Exception as e:
-            print(f"❌ Error sending telegram: {e}")
+            print(f"⚠️ Telegram sending failed (non-critical): {e}")
 
+        print("✅ Order processing completed successfully")
         return jsonify({
             "message": "Order placed successfully! Invoice sent to your email.",
             "order_id": order.id
@@ -396,7 +410,7 @@ def placeOrder():
 
     except Exception as e:
         db.session.rollback()
-        print(f"❌ ERROR in placeOrder: {str(e)}")
+        print(f"❌ CRITICAL ERROR in placeOrder: {str(e)}")
         print(f"❌ ERROR type: {type(e).__name__}")
         import traceback
         print(f"❌ ERROR traceback: {traceback.format_exc()}")
